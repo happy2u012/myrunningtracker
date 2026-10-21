@@ -1,0 +1,43 @@
+{
+    "Alex": [
+        {
+            "date": "2026-10-16",
+            "distance": 3.77,
+            "duration": "00:29:42"
+        },
+        {
+            "date": "2026-10-17",
+            "distance": 20.0,
+            "duration": "02:25:22"
+        },
+        {
+            "date": "2026-10-19",
+            "distance": 4.28,
+            "duration": "00:27:37"
+        },
+        {
+            "date": "2026-10-20",
+            "distance": 5.12,
+            "duration": "00:35:57"
+        },
+        {
+            "date": "2026-10-24",
+            "distance": 5.0,
+            "duration": "00:26:30"
+        }
+    ],
+    "Raina": [
+        {
+            "date": "2026-10-05",
+            "distance": 5.0,
+            "duration": "00:43:23"
+        }
+    ],
+    "Seohyeon": [
+        {
+            "date": "2026-10-08",
+            "distance": 10.65,
+            "duration": "01:11:59"
+        }
+    ]
+}
