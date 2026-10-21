@@ -1,4 +1,0 @@
-streamlit
-fpdf2
-matplotlib
-st-gsheets-connection
