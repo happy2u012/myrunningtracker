@@ -22,35 +22,23 @@ import time
 if "login_attempts" not in st.session_state: st.session_state.login_attempts = 0
 if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
 
-@st.cache_data(ttl=0)
-# --- Load Cloud Google Sheets Data safely (Cache optimized for real-time reads) ---
 def load_cloud_data():
     try:
-        # Use st.secrets instead of hardcoded strings
-        users_url = st.secrets["connections"]["gsheets"]["users_url"]
-        runs_url = st.secrets["connections"]["gsheets"]["runs_url"]
-        
-        # FIX: Added clear, unique headers/cache context parameters to prevent stream duplication stalls
-        df_u = pd.read_csv(users_url, on_bad_lines='skip')
-        df_r = pd.read_csv(runs_url, on_bad_lines='skip')
+        df_u = pd.read_csv(st.secrets["connections"]["gsheets"]["users_url"], on_bad_lines='skip')
+        df_r = pd.read_csv(st.secrets["connections"]["gsheets"]["runs_url"], on_bad_lines='skip')
     except Exception as e:
         st.error(f"Spreadsheet connection error: {e}")
         df_u, df_r = pd.DataFrame(columns=["runner", "password"]), pd.DataFrame(columns=["runner", "date", "distance", "duration"])
-        
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
-    
-    if "runner" not in df_u.columns or "password" not in df_u.columns: 
-        df_u = pd.DataFrame(columns=["runner", "password"])
-    if "runner" not in df_r.columns or "date" not in df_r.columns: 
-        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
-        
+    if "runner" not in df_u.columns or "password" not in df_u.columns: df_u = pd.DataFrame(columns=["runner", "password"])
+    if "runner" not in df_r.columns or "date" not in df_r.columns: df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     return df_u, df_r
 
 df_users, df_runs = load_cloud_data()
 existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist())
 
-# --- User Account Authentication Interface (Cache-Clearing Guard Added) ---
+# --- User Account Authentication Interface ---
 def check_user_login():
     if "logged_in_user" not in st.session_state: st.session_state.logged_in_user = None
     if "is_admin" not in st.session_state: st.session_state.is_admin = False
@@ -67,21 +55,17 @@ def check_user_login():
     
     with col_login:
         if st.button("Login", use_container_width=True):
-            # FIX: Pull fresh data directly from Google Sheets during authentication events
             fresh_users, fresh_runs = load_cloud_data()
-            
             if login_id == st.secrets["admin"]["master_id"] and login_pw == st.secrets["admin"]["master_password"]:
-                st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, True, 0
-                st.rerun()
-                
+                st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, True, 0; st.rerun()
+            
             user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == login_id]
             if not user_match.empty and str(user_match.iloc[0]["password"]).strip() == helpers.hash_password(login_pw):
-                st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, False, 0
-                st.rerun()
+                st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, False, 0; st.rerun()
             else:
                 st.session_state.login_attempts += 1
                 if st.session_state.login_attempts >= 5: st.session_state.lockout_time = time.time() + 900
-                st.error("Invalid credentials.")
+                st.error("Invalid credentials."); st.rerun()
                 
     with col_reg:
         with st.popover("Create New Account", use_container_width=True):
@@ -93,9 +77,7 @@ def check_user_login():
                 elif len(reg_pw) < 6: st.error("Password must be >= 6 characters.")
                 else:
                     if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": helpers.hash_password(reg_pw)}):
-                        st.success("Account created successfully! Click Login to proceed.")
-                        st.cache_data.clear() # Clear background thread data memory instantly
-                        st.rerun()
+                        st.success("Account created! Please log in."); st.cache_data.clear(); st.rerun()
                     else: st.error("Registration failed.")
     return False
 
@@ -108,7 +90,7 @@ with st.sidebar:
 
 tabs = st.tabs(["📊 My Running Records", "🏆 Global Leaderboard & Export", "⚙️ Admin Management Console"] if is_admin else ["📊 My Running Records", "🏆 Global Leaderboard & Export"])
 
-# --- Tab 1: Private Records Management (Isolated) ---
+# --- Tab 1: Private Records Management ---
 with tabs[0]:
     st.header(f"👟 Track Records for {current_user}")
     rec_tab1, rec_tab2 = st.tabs(["Add Performance Log", "View My History"])

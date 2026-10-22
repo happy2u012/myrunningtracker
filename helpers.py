@@ -11,7 +11,6 @@ from fpdf import FPDF
 
 # --- Cryptographic Password Hashing Security ---
 def hash_password(password_str):
-    """Scrambles plain-text passwords into a secure SHA-256 hash."""
     return hashlib.sha256(password_str.encode('utf-8')).hexdigest()
 
 # --- Helper Function to Calculate Individual Run Pace ---
@@ -63,11 +62,10 @@ def calculate_stats_dataframe(df_runs):
         }
     return summary
 
-# --- Web App Script Write Bridge (FIXED WITH REDIRECT FOLLOWS) ---
+# --- Web App Script Write Bridge ---
 def post_to_google_sheet(payload):
     try:
         script_url = st.secrets["connections"]["gsheets"]["script_url"]
-        # FIX: Explicitly pass allow_redirects=True and content headers to force Google App Script connection
         headers = {'Content-Type': 'application/json'}
         response = requests.post(script_url, data=json.dumps(payload), headers=headers, allow_redirects=True)
         return response.status_code == 200
