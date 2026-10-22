@@ -10,7 +10,17 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .viewerBadge_container__1QS1Y {display: none !important;}
-    input[type="password"] {-webkit-text-security: square;}
+    
+    /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
+    /* Only apply password security styling on screens wider than a mobile phone */
+    @media (min-width: 768px) {
+        input[type="password"] {-webkit-text-security: square;}
+    }
+    
+    /* Force form containers and tables to wrap smoothly on narrow viewports */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 1rem !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
