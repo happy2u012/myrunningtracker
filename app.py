@@ -1,8 +1,5 @@
 import streamlit as st
 
-# MUST be the absolute first Streamlit execution command
-st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wide")
-
 # --- CSS Injection to Hide GitHub Icons, Streamlit Menu, and Footer ---
 st.markdown("""
     <style>
@@ -12,7 +9,7 @@ st.markdown("""
     .viewerBadge_container__1QS1Y {display: none !important;}
     input[type="password"] {-webkit-text-security: square;}
     </style>
-""", unsafe_safe_placeholder=True, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 import json
 import os
