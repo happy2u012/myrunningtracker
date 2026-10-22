@@ -3,9 +3,16 @@ import io
 import os
 import requests
 import json
+import hashlib
+import time
 import matplotlib.pyplot as plt
 import streamlit as st
 from fpdf import FPDF
+
+# --- Cryptographic Password Hashing Security ---
+def hash_password(password_str):
+    """Scrambles plain-text passwords into a secure SHA-256 hash."""
+    return hashlib.sha256(password_str.encode('utf-8')).hexdigest()
 
 # --- Helper Function to Calculate Individual Run Pace ---
 def calculate_run_pace(distance, duration_str):

@@ -16,54 +16,55 @@ st.markdown("""
 
 import pandas as pd
 import helpers
+import time
 
-# --- Load Cloud Google Sheets Data safely as structured dataframes ---
+# --- Initialize Security Brute-Force Counters ---
+if "login_attempts" not in st.session_state: st.session_state.login_attempts = 0
+if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
+
 @st.cache_data(ttl=0)
 def load_cloud_data():
     try:
-        users_url = st.secrets["connections"]["gsheets"]["users_url"]
-        runs_url = st.secrets["connections"]["gsheets"]["runs_url"]
-        df_u = pd.read_csv(users_url, on_bad_lines='skip')
-        df_r = pd.read_csv(runs_url, on_bad_lines='skip')
+        df_u = pd.read_csv(st.secrets["connections"]["gsheets"]["users_url"], on_bad_lines='skip')
+        df_r = pd.read_csv(st.secrets["connections"]["gsheets"]["runs_url"], on_bad_lines='skip')
     except Exception as e:
-        st.error(f"Spreadsheet connection error. Details: {e}")
+        st.error(f"Spreadsheet connection error: {e}")
         df_u, df_r = pd.DataFrame(columns=["runner", "password"]), pd.DataFrame(columns=["runner", "date", "distance", "duration"])
-        
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
-    
-    if "runner" not in df_u.columns or "password" not in df_u.columns:
-        df_u = pd.DataFrame(columns=["runner", "password"])
-    if "runner" not in df_r.columns or "date" not in df_r.columns:
-        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
-        
+    if "runner" not in df_u.columns or "password" not in df_u.columns: df_u = pd.DataFrame(columns=["runner", "password"])
+    if "runner" not in df_r.columns or "date" not in df_r.columns: df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     return df_u, df_r
 
 df_users, df_runs = load_cloud_data()
 existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist())
 
-# --- Individual Account Authentication Prompt Logic ---
+# --- User Account Authentication Interface ---
 def check_user_login():
     if "logged_in_user" not in st.session_state: st.session_state.logged_in_user = None
     if "is_admin" not in st.session_state: st.session_state.is_admin = False
     if st.session_state.logged_in_user is not None: return True
 
     st.title("🔒 Running Tracker Account Login")
+    if st.session_state.login_attempts >= 5 and (st.session_state.lockout_time - time.time()) > 0:
+        st.error(f"🚨 System locked. Try again in {int(st.session_state.lockout_time - time.time())} seconds.")
+        return False
+
     login_id = st.text_input("Username / ID").strip()
     login_pw = st.text_input("Password", type="password")
-    
     col_login, col_reg = st.columns(2)
+    
     with col_login:
         if st.button("Login", use_container_width=True):
             if login_id == st.secrets["admin"]["master_id"] and login_pw == st.secrets["admin"]["master_password"]:
-                st.session_state.logged_in_user, st.session_state.is_admin = login_id, True
-                st.success("Welcome back, Master Admin!"); st.rerun()
-                
+                st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, True, 0; st.rerun()
             user_match = df_users[df_users["runner"].astype(str).str.strip() == login_id]
-            if not user_match.empty and str(user_match.iloc["password"]).strip() == login_pw:
-                st.session_state.logged_in_user, st.session_state.is_admin = login_id, False
-                st.success(f"Welcome back, {login_id}!"); st.rerun()
-            else: st.error("Invalid username or password configuration.")
+            if not user_match.empty and str(user_match.iloc[0]["password"]).strip() == helpers.hash_password(login_pw):
+                st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, False, 0; st.rerun()
+            else:
+                st.session_state.login_attempts += 1
+                if st.session_state.login_attempts >= 5: st.session_state.lockout_time = time.time() + 900
+                st.error("Invalid credentials."); st.rerun()
                 
     with col_reg:
         with st.popover("Create New Account", use_container_width=True):
@@ -71,9 +72,10 @@ def check_user_login():
             reg_pw = st.text_input("Choose Password", type="password")
             if st.button("Submit Registration"):
                 if not reg_id or not reg_pw: st.error("All fields are required.")
-                elif reg_id in existing_users or reg_id == st.secrets["admin"]["master_id"]: st.error("This ID is taken.")
+                elif reg_id in existing_users or reg_id == st.secrets["admin"]["master_id"]: st.error("ID taken.")
+                elif len(reg_pw) < 6: st.error("Password must be >= 6 characters.")
                 else:
-                    if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": reg_pw}):
+                    if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": helpers.hash_password(reg_pw)}):
                         st.success("Account created! Please log in."); st.cache_data.clear(); st.rerun()
                     else: st.error("Registration failed.")
     return False
@@ -85,11 +87,10 @@ with st.sidebar:
     st.write(f"Logged in as: **{current_user}** " + ("(Admin ⚙️)" if is_admin else ""))
     if st.button("Log Out"): st.session_state.logged_in_user, st.session_state.is_admin = None, False; st.rerun()
 
-tabs = ["📊 My Running Records", "🏆 Global Leaderboard & Export", "⚙️ Admin Management Console"] if is_admin else ["📊 My Running Records", "🏆 Global Leaderboard & Export"]
-selected_tabs = st.tabs(tabs)
+tabs = st.tabs(["📊 My Running Records", "🏆 Global Leaderboard & Export", "⚙️ Admin Management Console"] if is_admin else ["📊 My Running Records", "🏆 Global Leaderboard & Export"])
 
-# --- Tab 1: Private Records Management ---
-with selected_tabs[0]:
+# --- Tab 1: Private Records Management (Isolated) ---
+with tabs[0]:
     st.header(f"👟 Track Records for {current_user}")
     rec_tab1, rec_tab2 = st.tabs(["Add Performance Log", "View My History"])
     with rec_tab1:
@@ -110,18 +111,16 @@ with selected_tabs[0]:
             formatted_my_data = [{"No.": i, "Date": r["date"], "Distance": f"{r['distance']} km", "Duration": r["duration"], "Pace": helpers.calculate_run_pace(float(r['distance']), str(r['duration']))} for i, (_, r) in enumerate(my_records.iterrows(), 1)]
             st.dataframe(formatted_my_data, use_container_width=True, hide_index=True)
 
-# --- Tab 2: Shared Leaderboard ---
-with selected_tabs[1]:
+# --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
+with tabs[1]:
     st.header("🏆 Family Comparison Leaderboard")
     valid_runs = df_runs.dropna(subset=["runner", "distance", "duration"])
-    if not valid_runs.empty and "date" in valid_runs.columns:
-        valid_runs = valid_runs[valid_runs["date"].astype(str).str.strip() != ""]
-        
+    if not valid_runs.empty and "date" in valid_runs.columns: valid_runs = valid_runs[valid_runs["date"].astype(str).str.strip() != ""]
+    
     if valid_runs.empty: st.info("No leaderboard entries recorded.")
     else:
         stats = helpers.calculate_stats_dataframe(valid_runs)
         all_runners = list(stats.keys())
-        
         for user, s in stats.items():
             with st.expander(f"👤 Runner Account: {user}", expanded=True):
                 m1, m2, m3, m4, m5 = st.columns(5)
@@ -140,44 +139,25 @@ with selected_tabs[1]:
                     if user_records.empty: st.info("No plots available.")
                     else: helpers.draw_mileage_chart(user_records, s['Total Distance (km)'], user)
 
-        st.write("---")
-        st.subheader("📥 Export Data Reports")
-        
-        # FIX: Added interactive user filter checklist for selective exporting
-        selected_export_users = st.multiselect(
-            "Select runners to include in the exported files:",
-            options=all_runners,
-            default=all_runners,
-            help="Leave empty to include all runners by default."
-        )
-        
-        # If user clears selection, default back to all runners to prevent empty exports
+        st.write("---"); st.subheader("📥 Export Data Reports")
+        selected_export_users = st.multiselect("Select runners to include in the exported files:", options=all_runners, default=all_runners)
         final_export_users = selected_export_users if selected_export_users else all_runners
-        
-        # Filter statistics based on user selection
         filtered_stats = {user: data for user, data in stats.items() if user in final_export_users}
         filtered_runs = valid_runs[valid_runs["runner"].isin(final_export_users)]
         
         csv_data = helpers.make_csv(filtered_stats)
-        try: 
-            pdf_data = helpers.make_pdf_dataframe(filtered_stats, filtered_runs)
-            pdf_ready = True
-        except Exception as e: 
-            st.error(f"Failed to generate PDF: {e}")
-            pdf_ready = False
-            
+        try: pdf_data, pdf_ready = helpers.make_pdf_dataframe(filtered_stats, filtered_runs), True
+        except Exception as e: st.error(f"Failed to generate PDF: {e}"); pdf_ready = False
         down_col1, down_col2 = st.columns(2)
-        with down_col1: 
-            st.download_button(label="Download CSV", data=csv_data, file_name="running_comparison.csv", mime="text/csv")
+        with down_col1: st.download_button(label="Download CSV", data=csv_data, file_name="running_comparison.csv", mime="text/csv")
         with down_col2: 
-            if pdf_ready: 
-                st.download_button(label="Download PDF", data=pdf_data, file_name="running_comparison.pdf", mime="application/pdf")
+            if pdf_ready: st.download_button(label="Download PDF", data=pdf_data, file_name="running_comparison.pdf", mime="application/pdf")
 
 # --- Tab 3: Exclusive Admin Console ---
-if is_admin:
-    with selected_tabs[2]:
+if is_admin and len(tabs) > 2:
+    with tabs[2]:
         st.header("⚙️ Master Admin Control Console")
         st.warning("Data deletion operations can be executed directly inside your cloud Google Spreadsheet.")
-        st.subheader("Registered Account Matrix"); st.dataframe(df_users, use_container_width=True, hide_index=True)
+        st.subheader("Registered Account Matrix (Hashed)"); st.dataframe(df_users, use_container_width=True, hide_index=True)
         st.subheader("Global Running History Matrix"); st.dataframe(df_runs, use_container_width=True, hide_index=True)
         
