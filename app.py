@@ -208,6 +208,47 @@ with tab_leaderboard:
                     st.write("#### 📊 Progress")
                     helpers.draw_mileage_chart(user_records, s["Total Distance (km)"], user)
 
+        # --- NEW EXPORT WIDGET CONTROL INTERFACE ---
+        st.write("---")
+        st.subheader("💾 Export Leaderboard Metrics")
+        
+        # Multiselect layout block to pick specific family runners to download
+        selected_runners = st.multiselect(
+            "Select Runners to Include in Export File:",
+            options=all_runners,
+            default=all_runners
+        )
+        
+        if selected_runners:
+            # Filter stats to match only the selected users
+            filtered_stats = {k: v for k, v in stats.items() if k in selected_runners}
+            
+            ex_col1, ex_col2 = st.columns(2)
+            
+            with ex_col1:
+                # Generate clean layout tabular text bytes via helper modules
+                csv_data = helpers.make_csv(filtered_stats)
+                st.download_button(
+                    label="📥 Download Dataset as CSV",
+                    data=csv_data,
+                    file_name="running_leaderboard_export.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+                
+            with ex_col2:
+                # Generate structured layout document report via helper fpdf engine
+                pdf_data = helpers.make_pdf_dataframe(filtered_stats, valid_runs)
+                st.download_button(
+                    label="📥 Download Performance Report as PDF",
+                    data=pdf_data,
+                    file_name="running_leaderboard_report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+        else:
+            st.warning("Please choose at least one runner from the selector dropdown menu to export files.")
+
 # --- Tab 3: Admin Management Console ---
 if is_admin:
     with tab_admin:
