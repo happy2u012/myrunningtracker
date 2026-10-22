@@ -59,8 +59,11 @@ def check_user_login():
             if login_id == st.secrets["admin"]["master_id"] and login_pw == st.secrets["admin"]["master_password"]:
                 st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, True, 0; st.rerun()
             
+            # Clean and match string spaces
             user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == login_id]
-            if not user_match.empty and str(user_match.iloc[0]["password"]).strip() == helpers.hash_password(login_pw):
+            
+            # FIX: Used .values[0] for direct value comparison to prevent row index mismatch crashes
+            if not user_match.empty and str(user_match["password"].values[0]).strip() == helpers.hash_password(login_pw):
                 st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, False, 0; st.rerun()
             else:
                 st.session_state.login_attempts += 1
@@ -77,7 +80,7 @@ def check_user_login():
                 elif len(reg_pw) < 6: st.error("Password must be >= 6 characters.")
                 else:
                     if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": helpers.hash_password(reg_pw)}):
-                        st.success("Account created! Please log in."); st.cache_data.clear(); st.rerun()
+                        st.success("Account created successfully! Click Login to proceed."); st.cache_data.clear(); st.rerun()
                     else: st.error("Registration failed.")
     return False
 
@@ -160,4 +163,4 @@ if is_admin and len(tabs) > 2:
         st.header("⚙️ Master Admin Control Console")
         st.warning("Data deletion operations can be executed directly inside your cloud Google Spreadsheet.")
         st.subheader("Registered Account Matrix (Hashed)"); st.dataframe(df_users, use_container_width=True, hide_index=True)
-        st.subheader("Global Running History Matrix"); st.dataframe(df_runs, use_container_width=True, hide_index=True)
+        st.subheader("Global Running History Matrix"); st.dataframe(df_runs, use_container_width=True, hide_index=True) 
