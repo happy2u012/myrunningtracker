@@ -3,6 +3,17 @@ import streamlit as st
 # FIX: st.set_page_config MUST be the absolute first Streamlit command executed
 st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wide")
 
+# FIX: Inject CSS overrides to completely hide the top-right GitHub/Streamlit icons and footer links
+st.html(
+    """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .viewerBadge {display: none !important;}
+    header {visibility: hidden !important;}
+    </style>
+    """
+)
 # --- Simple Password Protection Function ---
 def check_password():
     if "password_correct" not in st.session_state:
