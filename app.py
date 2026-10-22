@@ -29,11 +29,9 @@ def load_cloud_data():
         st.error(f"Spreadsheet connection error. Details: {e}")
         df_u, df_r = pd.DataFrame(columns=["runner", "password"]), pd.DataFrame(columns=["runner", "date", "distance", "duration"])
         
-    # Standardize column header strings to lowercase
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
     
-    # FIX: Structural fallback parameters if columns are totally missing or empty
     if "runner" not in df_u.columns or "password" not in df_u.columns:
         df_u = pd.DataFrame(columns=["runner", "password"])
     if "runner" not in df_r.columns or "date" not in df_r.columns:
@@ -62,7 +60,7 @@ def check_user_login():
                 st.success("Welcome back, Master Admin!"); st.rerun()
                 
             user_match = df_users[df_users["runner"].astype(str).str.strip() == login_id]
-            if not user_match.empty and str(user_match.iloc[0]["password"]).strip() == login_pw:
+            if not user_match.empty and str(user_match.iloc["password"]).strip() == login_pw:
                 st.session_state.logged_in_user, st.session_state.is_admin = login_id, False
                 st.success(f"Welcome back, {login_id}!"); st.rerun()
             else: st.error("Invalid username or password configuration.")
@@ -122,6 +120,8 @@ with selected_tabs[1]:
     if valid_runs.empty: st.info("No leaderboard entries recorded.")
     else:
         stats = helpers.calculate_stats_dataframe(valid_runs)
+        all_runners = list(stats.keys())
+        
         for user, s in stats.items():
             with st.expander(f"👤 Runner Account: {user}", expanded=True):
                 m1, m2, m3, m4, m5 = st.columns(5)
@@ -140,14 +140,38 @@ with selected_tabs[1]:
                     if user_records.empty: st.info("No plots available.")
                     else: helpers.draw_mileage_chart(user_records, s['Total Distance (km)'], user)
 
+        st.write("---")
         st.subheader("📥 Export Data Reports")
-        csv_data = helpers.make_csv(stats)
-        try: pdf_data, pdf_ready = helpers.make_pdf_dataframe(stats, valid_runs), True
-        except Exception as e: st.error(f"Failed to generate PDF: {e}"); pdf_ready = False
+        
+        # FIX: Added interactive user filter checklist for selective exporting
+        selected_export_users = st.multiselect(
+            "Select runners to include in the exported files:",
+            options=all_runners,
+            default=all_runners,
+            help="Leave empty to include all runners by default."
+        )
+        
+        # If user clears selection, default back to all runners to prevent empty exports
+        final_export_users = selected_export_users if selected_export_users else all_runners
+        
+        # Filter statistics based on user selection
+        filtered_stats = {user: data for user, data in stats.items() if user in final_export_users}
+        filtered_runs = valid_runs[valid_runs["runner"].isin(final_export_users)]
+        
+        csv_data = helpers.make_csv(filtered_stats)
+        try: 
+            pdf_data = helpers.make_pdf_dataframe(filtered_stats, filtered_runs)
+            pdf_ready = True
+        except Exception as e: 
+            st.error(f"Failed to generate PDF: {e}")
+            pdf_ready = False
+            
         down_col1, down_col2 = st.columns(2)
-        with down_col1: st.download_button(label="Download CSV", data=csv_data, file_name="running_comparison.csv", mime="text/csv")
+        with down_col1: 
+            st.download_button(label="Download CSV", data=csv_data, file_name="running_comparison.csv", mime="text/csv")
         with down_col2: 
-            if pdf_ready: st.download_button(label="Download PDF", data=pdf_data, file_name="running_comparison.pdf", mime="application/pdf")
+            if pdf_ready: 
+                st.download_button(label="Download PDF", data=pdf_data, file_name="running_comparison.pdf", mime="application/pdf")
 
 # --- Tab 3: Exclusive Admin Console ---
 if is_admin:
@@ -156,3 +180,4 @@ if is_admin:
         st.warning("Data deletion operations can be executed directly inside your cloud Google Spreadsheet.")
         st.subheader("Registered Account Matrix"); st.dataframe(df_users, use_container_width=True, hide_index=True)
         st.subheader("Global Running History Matrix"); st.dataframe(df_runs, use_container_width=True, hide_index=True)
+        
