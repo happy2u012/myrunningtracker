@@ -31,7 +31,7 @@ def load_cloud_data():
         u_sep = "&" if "?" in u_url else "?"
         r_sep = "&" if "?" in r_url else "?"
         
-        # Appending t=ts forces Google Cloud to bypass cache parameters and return live rows
+        # Appending dynamic cache-busting timestamp parameters
         df_u = pd.read_csv(f"{u_url}{u_sep}t={ts}", on_bad_lines='skip')
         df_r = pd.read_csv(f"{r_url}{r_sep}t={ts}", on_bad_lines='skip')
     except Exception as e:
@@ -39,7 +39,7 @@ def load_cloud_data():
         df_u = pd.DataFrame(columns=["runner", "password"])
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     
-    # Normalize column headers to lowercase strings safely
+    # Safely stringify and normalize column headers to lowercase
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
     
@@ -82,12 +82,13 @@ def check_user_login():
             
             # 2. Standard User Account Spreadsheet Row Matching Branch
             else:
-                user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == login_id]
+                # Force both sides to string to avoid index typing mismatch crashes
+                user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
                 
                 if not user_match.empty:
-                    # CRITICAL FIX: Extract scalar cell text with .values[0] instead of converting whole list wrapper via str()
-                    stored_hash = str(user_match["password"].values[0]).strip()
-                    input_hash = helpers.hash_password(login_pw)
+                    # ULTIMATE FIX: Use .iloc[0] to grab the first matching cell text string cleanly
+                    stored_hash = str(user_match["password"].iloc[0]).strip().lower()
+                    input_hash = str(helpers.hash_password(login_pw)).strip().lower()
                     
                     if stored_hash == input_hash:
                         st.session_state.logged_in_user = login_id
@@ -96,10 +97,10 @@ def check_user_login():
                         st.rerun()
                     else:
                         st.session_state.login_attempts += 1
-                        st.error("Invalid credentials.")
+                        st.error("Invalid credentials. (Password Mismatch)")
                 else:
                     st.session_state.login_attempts += 1
-                    st.error("Invalid credentials.")
+                    st.error("Invalid credentials. (User Not Found)")
                 
                 if st.session_state.login_attempts >= 5: 
                     st.session_state.lockout_time = time.time() + 900
@@ -206,4 +207,3 @@ if is_admin:
         st.success("Welcome authorized Administrator. System core running components stable.")
         st.write("### 👥 System User Database Control")
         st.dataframe(df_users, use_container_width=True, hide_index=True)
-        
