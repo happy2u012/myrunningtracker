@@ -31,7 +31,7 @@ def load_cloud_data():
         u_sep = "&" if "?" in u_url else "?"
         r_sep = "&" if "?" in r_url else "?"
         
-        # Appending t=ts forces Google to bypass cache parameters and return live rows
+        # Appending t=ts forces Google Cloud to bypass cache parameters and return live rows
         df_u = pd.read_csv(f"{u_url}{u_sep}t={ts}", on_bad_lines='skip')
         df_r = pd.read_csv(f"{r_url}{r_sep}t={ts}", on_bad_lines='skip')
     except Exception as e:
@@ -39,11 +39,10 @@ def load_cloud_data():
         df_u = pd.DataFrame(columns=["runner", "password"])
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     
-    # Normalize column headers to lowercase strings
+    # Normalize column headers to lowercase strings safely
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
     
-    # If the sheet is completely blank, initialize columns safely
     if df_u.empty or "runner" not in df_u.columns:
         df_u = pd.DataFrame(columns=["runner", "password"])
     if df_r.empty or "runner" not in df_r.columns:
@@ -85,18 +84,25 @@ def check_user_login():
             else:
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == login_id]
                 
-                # FIXED: Extracted direct scalar value using [0] to match the raw hash string perfectly
-                if not user_match.empty and str(user_match["password"].values[0]).strip() == helpers.hash_password(login_pw):
-                    st.session_state.logged_in_user = login_id
-                    st.session_state.is_admin = False
-                    st.session_state.login_attempts = 0
-                    st.rerun()
+                if not user_match.empty:
+                    # CRITICAL FIX: Extract scalar cell text with .values[0] instead of converting whole list wrapper via str()
+                    stored_hash = str(user_match["password"].values[0]).strip()
+                    input_hash = helpers.hash_password(login_pw)
+                    
+                    if stored_hash == input_hash:
+                        st.session_state.logged_in_user = login_id
+                        st.session_state.is_admin = False
+                        st.session_state.login_attempts = 0
+                        st.rerun()
+                    else:
+                        st.session_state.login_attempts += 1
+                        st.error("Invalid credentials.")
                 else:
                     st.session_state.login_attempts += 1
-                    if st.session_state.login_attempts >= 5: 
-                        st.session_state.lockout_time = time.time() + 900
                     st.error("Invalid credentials.")
-                    st.rerun()
+                
+                if st.session_state.login_attempts >= 5: 
+                    st.session_state.lockout_time = time.time() + 900
                 
     with col_reg:
         with st.popover("Create New Account", use_container_width=True):
@@ -200,3 +206,4 @@ if is_admin:
         st.success("Welcome authorized Administrator. System core running components stable.")
         st.write("### 👥 System User Database Control")
         st.dataframe(df_users, use_container_width=True, hide_index=True)
+        

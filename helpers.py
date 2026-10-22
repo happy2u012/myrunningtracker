@@ -179,7 +179,6 @@ def make_pdf_dataframe(stats, df_runs):
                 pdf.add_page()
             pdf.image(chart_filename, x=15, y=pdf.get_y() + 2, w=180)
             
-            # FIXED: Safely clean up the generated file artifact
             if os.path.exists(chart_filename):
                 os.remove(chart_filename)
                 
