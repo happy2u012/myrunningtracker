@@ -31,7 +31,6 @@ def load_cloud_data():
         u_sep = "&" if "?" in u_url else "?"
         r_sep = "&" if "?" in r_url else "?"
         
-        # Appending dynamic cache-busting timestamp parameters
         df_u = pd.read_csv(f"{u_url}{u_sep}t={ts}", on_bad_lines='skip')
         df_r = pd.read_csv(f"{r_url}{r_sep}t={ts}", on_bad_lines='skip')
     except Exception as e:
@@ -39,19 +38,17 @@ def load_cloud_data():
         df_u = pd.DataFrame(columns=["runner", "password"])
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     
-    # Safely stringify and normalize column headers to lowercase
+    # Save original columns for debugging assistance before modification
+    st.session_state["raw_user_cols"] = list(df_u.columns)
+    
+    # Normalize column headers to lowercase strings safely
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
     
-    if df_u.empty or "runner" not in df_u.columns:
-        df_u = pd.DataFrame(columns=["runner", "password"])
-    if df_r.empty or "runner" not in df_r.columns:
-        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
-        
     return df_u, df_r
 
 df_users, df_runs = load_cloud_data()
-existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist())
+existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist()) if "runner" in df_users.columns else []
 
 # --- User Account Authentication Interface ---
 def check_user_login():
@@ -60,6 +57,14 @@ def check_user_login():
     if st.session_state.logged_in_user is not None: return True
 
     st.title("🔒 Running Tracker Account Login")
+    
+    # 🔍 DYNAMIC DATABASE INSPECTOR FOR TROUBLESHOOTING
+    with st.expander("🔍 Live Cloud Database Inspector (Debug View)", expanded=False):
+        st.write("This tool shows exactly what your Streamlit app reads from your `users_url` link.")
+        st.write(f"**Detected Column Headers:** `{st.session_state.get('raw_user_cols', [])}`")
+        st.write("**Loaded Rows Count:**", len(df_users))
+        st.dataframe(df_users, use_container_width=True)
+
     current_time = time.time()
     if st.session_state.login_attempts >= 5 and (st.session_state.lockout_time - current_time) > 0:
         st.error(f"🚨 System locked. Try again in {int(st.session_state.lockout_time - current_time)} seconds.")
@@ -82,11 +87,14 @@ def check_user_login():
             
             # 2. Standard User Account Spreadsheet Row Matching Branch
             else:
-                # Force both sides to string to avoid index typing mismatch crashes
+                if "runner" not in fresh_users.columns:
+                    st.error("Login System Error: The spreadsheet column named 'runner' was not found.")
+                    return False
+                    
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
                 
                 if not user_match.empty:
-                    # ULTIMATE FIX: Use .iloc[0] to grab the first matching cell text string cleanly
+                    # FIXED: Added correct indexing syntax .iloc[0] to pick the exact scalar text item
                     stored_hash = str(user_match["password"].iloc[0]).strip().lower()
                     input_hash = str(helpers.hash_password(login_pw)).strip().lower()
                     
