@@ -1,9 +1,13 @@
 import csv
 import io
 import os
+import requests
+import json
 import matplotlib.pyplot as plt
+import streamlit as st
 from fpdf import FPDF
 
+# --- Helper Function to Calculate Individual Run Pace ---
 def calculate_run_pace(distance, duration_str):
     if distance <= 0: return "00:00/km"
     try:
@@ -14,6 +18,7 @@ def calculate_run_pace(distance, duration_str):
         return f"{pace_m:02d}:{pace_s:02d}/km"
     except Exception: return "00:00/km"
 
+# --- Statistics Calculation Function ---
 def calculate_stats_dataframe(df_runs):
     summary = {}
     unique_runners = df_runs["runner"].unique()
@@ -38,7 +43,12 @@ def calculate_stats_dataframe(df_runs):
             h, m = divmod(m, 60)
             return f"{h:02d}:{m:02d}:{s:02d}"
             
-        pace_str = f"{divmod(int(total_seconds / total_distance), 60)[0]:02d}:{divmod(int(total_seconds / total_distance), 60)[1]:02d}/km" if total_distance > 0 else "00:00/km"
+        if total_distance > 0:
+            pace_seconds_per_km = total_seconds / total_distance
+            pace_m, pace_s = divmod(int(pace_seconds_per_km), 60)
+            pace_str = f"{pace_m:02d}:{pace_s:02d}/km"
+        else:
+            pace_str = "00:00/km"
         
         summary[user] = {
             "Total Days": total_days, "Total Distance (km)": round(total_distance, 2), "Total Time": sec_to_str(total_seconds),
@@ -46,6 +56,37 @@ def calculate_stats_dataframe(df_runs):
         }
     return summary
 
+# --- Web App Script Write Bridge ---
+def post_to_google_sheet(payload):
+    try:
+        script_url = st.secrets["connections"]["gsheets"]["script_url"]
+        response = requests.post(script_url, data=json.dumps(payload))
+        return response.status_code == 200
+    except Exception as e:
+        st.error(f"Write failure: {e}")
+        return False
+
+# --- Web Mileage Bar Chart Generation ---
+def draw_mileage_chart(user_records, total_distance, user_name):
+    fig, ax = plt.subplots(figsize=(6, max(2.5, len(user_records) * 0.4)))
+    labels = [str(run['date']) for _, run in user_records.iterrows()] + ["TOTAL"]
+    distances = [float(run['distance']) for _, run in user_records.iterrows()] + [total_distance]
+    colors = ['#a6c8e0'] * len(user_records) + ['#1f4e79']
+    
+    bars = ax.barh(labels, distances, color=colors, height=0.6)
+    ax.set_xlabel("Distance (km)", fontsize=9, fontweight='bold')
+    ax.invert_yaxis()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
+    for bar in bars:
+        width = bar.get_width()
+        ax.text(width + (max(distances) * 0.02), bar.get_y() + bar.get_height()/2, 
+                f"{width:.1f}k", va='center', ha='left', fontsize=8, fontweight='bold')
+    st.pyplot(fig)
+    plt.close(fig)
+
+# --- CSV Export ---
 def make_csv(stats):
     output = io.StringIO()
     writer = csv.writer(output)
@@ -54,6 +95,7 @@ def make_csv(stats):
         writer.writerow([user, s["Total Days"], s["Total Distance (km)"], s["Total Time"], s["Avg Distance (km)"], s["Avg Time"], s["Avg Pace"]])
     return output.getvalue().encode('utf-8')
 
+# --- PDF Export ---
 def make_pdf_dataframe(stats, df_runs):
     pdf = FPDF()
     for user, s in stats.items():
@@ -127,4 +169,5 @@ def make_pdf_dataframe(stats, df_runs):
             if (297 - pdf.get_y() - 20) < (len(user_records)*4 + 50): pdf.add_page()
             pdf.image(chart_filename, x=15, y=pdf.get_y() + 2, w=180)
             if os.path.exists(chart_filename): os.remove(chart_filename)
+            
     return pdf.output(dest='S').encode('latin-1') if isinstance(pdf.output(dest='S'), str) else bytes(pdf.output(dest='S'))
