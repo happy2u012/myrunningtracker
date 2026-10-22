@@ -29,8 +29,16 @@ def load_cloud_data():
         st.error(f"Spreadsheet connection error. Details: {e}")
         df_u, df_r = pd.DataFrame(columns=["runner", "password"]), pd.DataFrame(columns=["runner", "date", "distance", "duration"])
         
-    df_u.columns = [c.lower().strip() for c in df_u.columns]
-    df_r.columns = [c.lower().strip() for c in df_r.columns]
+    # Standardize column header strings to lowercase
+    df_u.columns = [str(c).lower().strip() for c in df_u.columns]
+    df_r.columns = [str(c).lower().strip() for c in df_r.columns]
+    
+    # FIX: Structural fallback parameters if columns are totally missing or empty
+    if "runner" not in df_u.columns or "password" not in df_u.columns:
+        df_u = pd.DataFrame(columns=["runner", "password"])
+    if "runner" not in df_r.columns or "date" not in df_r.columns:
+        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+        
     return df_u, df_r
 
 df_users, df_runs = load_cloud_data()
@@ -108,7 +116,9 @@ with selected_tabs[0]:
 with selected_tabs[1]:
     st.header("🏆 Family Comparison Leaderboard")
     valid_runs = df_runs.dropna(subset=["runner", "distance", "duration"])
-    valid_runs = valid_runs[valid_runs["date"].astype(str).str.strip() != ""]
+    if not valid_runs.empty and "date" in valid_runs.columns:
+        valid_runs = valid_runs[valid_runs["date"].astype(str).str.strip() != ""]
+        
     if valid_runs.empty: st.info("No leaderboard entries recorded.")
     else:
         stats = helpers.calculate_stats_dataframe(valid_runs)
