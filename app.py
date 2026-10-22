@@ -31,6 +31,7 @@ def load_cloud_data():
         u_sep = "&" if "?" in u_url else "?"
         r_sep = "&" if "?" in r_url else "?"
         
+        # Appending t=ts forces Google Cloud to bypass cache parameters and return live rows
         df_u = pd.read_csv(f"{u_url}{u_sep}t={ts}", on_bad_lines='skip')
         df_r = pd.read_csv(f"{r_url}{r_sep}t={ts}", on_bad_lines='skip')
     except Exception as e:
@@ -38,13 +39,15 @@ def load_cloud_data():
         df_u = pd.DataFrame(columns=["runner", "password"])
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     
-    # Save original columns for debugging assistance before modification
-    st.session_state["raw_user_cols"] = list(df_u.columns)
-    
     # Normalize column headers to lowercase strings safely
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
     
+    if df_u.empty or "runner" not in df_u.columns:
+        df_u = pd.DataFrame(columns=["runner", "password"])
+    if df_r.empty or "runner" not in df_r.columns:
+        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+        
     return df_u, df_r
 
 df_users, df_runs = load_cloud_data()
@@ -57,7 +60,6 @@ def check_user_login():
     if st.session_state.logged_in_user is not None: return True
 
     st.title("🔒 Running Tracker Account Login")
-   
     current_time = time.time()
     if st.session_state.login_attempts >= 5 and (st.session_state.lockout_time - current_time) > 0:
         st.error(f"🚨 System locked. Try again in {int(st.session_state.lockout_time - current_time)} seconds.")
@@ -80,15 +82,11 @@ def check_user_login():
             
             # 2. Standard User Account Spreadsheet Row Matching Branch
             else:
-                if "runner" not in fresh_users.columns:
-                    st.error("Login System Error: The spreadsheet column named 'runner' was not found.")
-                    return False
-                    
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
                 
                 if not user_match.empty:
-                    # FIXED: Added correct indexing syntax .iloc[0] to pick the exact scalar text item
-                    stored_hash = str(user_match["password"].iloc[0]).strip().lower()
+                    user_record = user_match.to_dict(orient="records")[0]
+                    stored_hash = str(user_record.get("password", "")).strip().lower()
                     input_hash = str(helpers.hash_password(login_pw)).strip().lower()
                     
                     if stored_hash == input_hash:
@@ -98,10 +96,10 @@ def check_user_login():
                         st.rerun()
                     else:
                         st.session_state.login_attempts += 1
-                        st.error("Invalid credentials. (Password Mismatch)")
+                        st.error("Invalid credentials.")
                 else:
                     st.session_state.login_attempts += 1
-                    st.error("Invalid credentials. (User Not Found)")
+                    st.error("Invalid credentials.")
                 
                 if st.session_state.login_attempts >= 5: 
                     st.session_state.lockout_time = time.time() + 900
@@ -131,7 +129,6 @@ with st.sidebar:
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
-
 # --- Unpacking Tabs ---
 if is_admin:
     tab_records, tab_leaderboard, tab_admin = st.tabs([
@@ -172,13 +169,20 @@ with tab_records:
 # --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
 with tab_leaderboard:
     st.header("🏆 Family Comparison Leaderboard")
+    
+    # Initialize variables cleanly so they exist regardless of conditions
+    all_runners = []
+    stats = {}
+    
     valid_runs = df_runs.dropna(subset=["runner", "distance", "duration"])
     if not valid_runs.empty and "date" in valid_runs.columns: 
         valid_runs = valid_runs[valid_runs["date"].astype(str).str.strip() != ""]
     
-    if valid_runs.empty: st.info("No leaderboard entries recorded.")
+    if valid_runs.empty: 
+        st.info("No leaderboard entries recorded yet. Add your first running record in the first tab!")
     else:
         stats = helpers.calculate_stats_dataframe(valid_runs)
+        all_runners = list(stats.keys())
         for user, s in stats.items():
             with st.expander(f"👤 Runner Account: {user}", expanded=True):
                 m1, m2, m3, m4, m5 = st.columns(5)
@@ -201,11 +205,11 @@ with tab_leaderboard:
                     st.write("#### 📊 Progress")
                     helpers.draw_mileage_chart(user_records, s["Total Distance (km)"], user)
 
-        # --- NEW EXPORT WIDGET CONTROL INTERFACE ---
-        st.write("---")
-        st.subheader("💾 Export Leaderboard Metrics")
-        
-        # Multiselect layout block to pick specific family runners to download
+    # --- EXPORT WIDGET CONTROL INTERFACE ---
+    st.write("---")
+    st.subheader("💾 Export Leaderboard Metrics")
+    
+    if len(all_runners) > 0:
         selected_runners = st.multiselect(
             "Select Runners to Include in Export File:",
             options=all_runners,
@@ -213,13 +217,10 @@ with tab_leaderboard:
         )
         
         if selected_runners:
-            # Filter stats to match only the selected users
             filtered_stats = {k: v for k, v in stats.items() if k in selected_runners}
-            
             ex_col1, ex_col2 = st.columns(2)
             
             with ex_col1:
-                # Generate clean layout tabular text bytes via helper modules
                 csv_data = helpers.make_csv(filtered_stats)
                 st.download_button(
                     label="📥 Download Dataset as CSV",
@@ -230,7 +231,6 @@ with tab_leaderboard:
                 )
                 
             with ex_col2:
-                # Generate structured layout document report via helper fpdf engine
                 pdf_data = helpers.make_pdf_dataframe(filtered_stats, valid_runs)
                 st.download_button(
                     label="📥 Download Performance Report as PDF",
@@ -241,6 +241,8 @@ with tab_leaderboard:
                 )
         else:
             st.warning("Please choose at least one runner from the selector dropdown menu to export files.")
+    else:
+        st.info("Export options will appear once running logs are saved in the system.")
 
 # --- Tab 3: Admin Management Console ---
 if is_admin:
