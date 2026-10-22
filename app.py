@@ -25,7 +25,6 @@ def load_cloud_data():
         users_url = st.secrets["connections"]["gsheets"]["users_url"]
         runs_url = st.secrets["connections"]["gsheets"]["runs_url"]
         
-        # FIX: Added on_bad_lines protection to prevent tokenization crashes
         df_u = pd.read_csv(users_url, on_bad_lines='skip')
         df_r = pd.read_csv(runs_url, on_bad_lines='skip')
     except Exception as e:
@@ -33,7 +32,6 @@ def load_cloud_data():
         df_u = pd.DataFrame(columns=["runner", "password"])
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
         
-    # Standardize column structures
     df_u.columns = [c.lower().strip() for c in df_u.columns]
     df_r.columns = [c.lower().strip() for c in df_r.columns]
     
@@ -44,9 +42,12 @@ def load_cloud_data():
 
 df_users, df_runs = load_cloud_data()
 
+# --- Individual Account Authentication Prompt Logic ---
 def check_user_login():
     if "logged_in_user" not in st.session_state:
         st.session_state.logged_in_user = None
+    if "is_admin" not in st.session_state:
+        st.session_state.is_admin = False
 
     if st.session_state.logged_in_user is not None:
         return True
@@ -56,11 +57,22 @@ def check_user_login():
     login_id = st.text_input("Username / ID").strip()
     login_pw = st.text_input("Password", type="password")
     
-    # FIX: Removed the informative popover message column entirely
     if st.button("Login", use_container_width=True):
+        # 1. Check against Master Admin Credentials from Secrets
+        admin_id = st.secrets["admin"]["master_id"]
+        admin_pw = st.secrets["admin"]["master_password"]
+        
+        if login_id == admin_id and login_pw == admin_pw:
+            st.session_state.logged_in_user = login_id
+            st.session_state.is_admin = True
+            st.success("Welcome back, System Master Admin!")
+            st.rerun()
+            
+        # 2. If not admin, check regular user sheet rows
         user_match = df_users[df_users["runner"].astype(str).str.strip() == login_id]
         if not user_match.empty and str(user_match.iloc[0]["password"]).strip() == login_pw:
             st.session_state.logged_in_user = login_id
+            st.session_state.is_admin = False
             st.success(f"Welcome back, {login_id}!")
             st.rerun()
         else:
@@ -72,15 +84,21 @@ if not check_user_login():
     st.stop()
 
 current_user = st.session_state.logged_in_user
+is_admin = st.session_state.is_admin
 
 # Sidebar Logout Component
 with st.sidebar:
-    st.write(f"Logged in as: **{current_user}**")
+    st.write(f"Logged in as: **{current_user}** " + ("(Admin ⚙️)" if is_admin else ""))
     if st.button("Log Out"):
         st.session_state.logged_in_user = None
+        st.session_state.is_admin = False
         st.rerun()
 
-tab1, tab2 = st.tabs(["📊 My Running Records", "🏆 Global Leaderboard & Export"])
+# Dynamically formulate tabs depending on Admin access clearance level
+if is_admin:
+    tab1, tab2, tab3 = st.tabs(["📊 My Running Records", "🏆 Global Leaderboard & Export", "⚙️ Admin Management Console"])
+else:
+    tab1, tab2 = st.tabs(["📊 My Running Records", "🏆 Global Leaderboard & Export"])
 
 # --- Tab 1: Private Records Management (Isolated) ---
 with tab1:
@@ -104,8 +122,6 @@ with tab1:
 # --- Tab 2: Shared Leaderboard & Multi-Page PDF Reporting ---
 with tab2:
     st.header("🏆 Family Comparison Leaderboard")
-    
-    # Filter out empty placeholder data rows cleanly
     valid_runs = df_runs.dropna(subset=["runner", "distance", "duration"])
     
     if valid_runs.empty:
@@ -176,3 +192,26 @@ with tab2:
         with down_col2:
             if pdf_ready:
                 st.download_button(label="Download PDF", data=pdf_data, file_name="running_comparison.pdf", mime="application/pdf")
+
+# --- Tab 3: Exclusive Admin Management Console ---
+if is_admin:
+    with tab3:
+        st.header("⚙️ Master Admin Control Console")
+        st.warning("Any structural operations executed here are logged straight to your underlying storage.")
+        
+        adm_opt = st.radio("Select Administrative Task", ["Manage User Accounts", "Override Running Log Records"], horizontal=True)
+        
+        if adm_opt == "Manage User Accounts":
+            st.subheader("Add / Remove Runner Accounts")
+            st.info("💡 To add or completely remove user rows securely, please adjust the rows in your linked Google Sheet 'users' tab.")
+            
+            st.write("#### Current Accounts Registered in System:")
+            st.dataframe(df_users, use_container_width=True, hide_index=True)
+            
+        elif adm_opt == "Override Running Log Records":
+            st.subheader("Global Logs Override Sheet")
+            st.info("💡 To overwrite distances, dates, or remove incorrect run items entirely, edit the 'running_data' tab in your shared Google Sheet.")
+            
+            st.write("#### Current Log Entry Database Rows:")
+            st.dataframe(df_runs, use_container_width=True, hide_index=True)
+            
