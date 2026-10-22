@@ -44,7 +44,6 @@ def load_cloud_data():
 
 df_users, df_runs = load_cloud_data()
 
-# --- Individual Account Authentication Prompt Logic ---
 def check_user_login():
     if "logged_in_user" not in st.session_state:
         st.session_state.logged_in_user = None
@@ -57,19 +56,16 @@ def check_user_login():
     login_id = st.text_input("Username / ID").strip()
     login_pw = st.text_input("Password", type="password")
     
-    col_login, col_reg = st.columns(2)
-    with col_login:
-        if st.button("Login", use_container_width=True):
-            user_match = df_users[df_users["runner"].astype(str).str.strip() == login_id]
-            if not user_match.empty and str(user_match.iloc[0]["password"]).strip() == login_pw:
-                st.session_state.logged_in_user = login_id
-                st.success(f"Welcome back, {login_id}!")
-                st.rerun()
-            else:
-                st.error("Invalid username or password configuration.")
-                
-    with col_reg:
-        st.info("💡 To add records or manage accounts, edit your family Google Sheet link rows directly.")
+    # FIX: Removed the informative popover message column entirely
+    if st.button("Login", use_container_width=True):
+        user_match = df_users[df_users["runner"].astype(str).str.strip() == login_id]
+        if not user_match.empty and str(user_match.iloc[0]["password"]).strip() == login_pw:
+            st.session_state.logged_in_user = login_id
+            st.success(f"Welcome back, {login_id}!")
+            st.rerun()
+        else:
+            st.error("Invalid username or password configuration.")
+            
     return False
 
 if not check_user_login():
