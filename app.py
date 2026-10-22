@@ -17,38 +17,32 @@ st.markdown("""
 import pandas as pd
 import helpers
 import matplotlib.pyplot as plt
-import urllib.parse
 
-# --- Load Cloud Google Sheets Data directly as CSVs ---
+# --- Load Cloud Google Sheets Data safely as structured dataframes ---
 @st.cache_data(ttl=0)
 def load_cloud_data():
     try:
         users_url = st.secrets["connections"]["gsheets"]["users_url"]
         runs_url = st.secrets["connections"]["gsheets"]["runs_url"]
         
-        df_u = pd.read_csv(users_url)
-        df_r = pd.read_csv(runs_url)
+        # FIX: Added on_bad_lines protection to prevent tokenization crashes
+        df_u = pd.read_csv(users_url, on_bad_lines='skip')
+        df_r = pd.read_csv(runs_url, on_bad_lines='skip')
     except Exception as e:
-        st.error(f"Spreadsheet connection error. Check your Secrets URLs. Details: {e}")
+        st.error(f"Spreadsheet connection error. Details: {e}")
         df_u = pd.DataFrame(columns=["runner", "password"])
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
         
-    if df_u.empty or "runner" not in df_u.columns:
-        df_u = pd.DataFrame(columns=["runner", "password"])
-    if df_r.empty or "runner" not in df_r.columns:
-        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+    # Standardize column structures
+    df_u.columns = [c.lower().strip() for c in df_u.columns]
+    df_r.columns = [c.lower().strip() for c in df_r.columns]
+    
+    if "runner" not in df_u.columns: df_u = pd.DataFrame(columns=["runner", "password"])
+    if "runner" not in df_r.columns: df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
         
     return df_u, df_r
 
-# --- Function to Save/Write Data back to Google Sheets form submission endpoint ---
-def save_to_google_form(runner, date="", distance=0.0, duration="00:00:00", action="add_run", password=""):
-    # Since direct saving via public link edit mode requires heavy OAuth setups,
-    # the cleanest direct web way is utilizing HTML requests or pushing live DataFrame data updates.
-    # To keep your setup completely simple and clear from HTTP Errors, we stream via the direct CSV connection form
-    pass
-
 df_users, df_runs = load_cloud_data()
-existing_users = sorted(df_users["runner"].dropna().unique().tolist())
 
 # --- Individual Account Authentication Prompt Logic ---
 def check_user_login():
@@ -66,8 +60,8 @@ def check_user_login():
     col_login, col_reg = st.columns(2)
     with col_login:
         if st.button("Login", use_container_width=True):
-            user_match = df_users[df_users["runner"].astype(str) == login_id]
-            if not user_match.empty and str(user_match.iloc[0]["password"]) == login_pw:
+            user_match = df_users[df_users["runner"].astype(str).str.strip() == login_id]
+            if not user_match.empty and str(user_match.iloc[0]["password"]).strip() == login_pw:
                 st.session_state.logged_in_user = login_id
                 st.success(f"Welcome back, {login_id}!")
                 st.rerun()
@@ -75,7 +69,7 @@ def check_user_login():
                 st.error("Invalid username or password configuration.")
                 
     with col_reg:
-        st.info("💡 To register or make live record changes directly, edit your family Google Sheet link rows cleanly.")
+        st.info("💡 To add records or manage accounts, edit your family Google Sheet link rows directly.")
     return False
 
 if not check_user_login():
@@ -96,26 +90,32 @@ tab1, tab2 = st.tabs(["📊 My Running Records", "🏆 Global Leaderboard & Expo
 with tab1:
     st.header(f"👟 Track Records for {current_user}")
     
-    my_records = df_runs[df_runs["runner"].astype(str) == current_user].sort_values(by="date")
+    my_records = df_runs[df_runs["runner"].astype(str).str.strip() == current_user].sort_values(by="date")
     if my_records.empty: 
         st.info("No running history found on your profile yet. Add rows directly to your shared Google Sheet tab.")
     else:
         formatted_my_data = []
         for idx, (_, r) in enumerate(my_records.iterrows(), 1):
-            r_pace = helpers.calculate_run_pace(float(r['distance']), str(r['duration']))
-            formatted_my_data.append({
-                "No.": idx, "Date": r["date"], "Distance": f"{r['distance']} km", "Duration": r["duration"], "Pace": r_pace
-            })
+            try:
+                r_pace = helpers.calculate_run_pace(float(r['distance']), str(r['duration']))
+                formatted_my_data.append({
+                    "No.": idx, "Date": r["date"], "Distance": f"{r['distance']} km", "Duration": r["duration"], "Pace": r_pace
+                })
+            except:
+                pass
         st.dataframe(formatted_my_data, use_container_width=True, hide_index=True)
 
 # --- Tab 2: Shared Leaderboard & Multi-Page PDF Reporting ---
 with tab2:
     st.header("🏆 Family Comparison Leaderboard")
     
-    if df_runs.empty:
+    # Filter out empty placeholder data rows cleanly
+    valid_runs = df_runs.dropna(subset=["runner", "distance", "duration"])
+    
+    if valid_runs.empty:
         st.info("No leaderboard entries recorded across profiles.")
     else:
-        stats = helpers.calculate_stats_dataframe(df_runs)
+        stats = helpers.calculate_stats_dataframe(valid_runs)
         for user, s in stats.items():
             with st.expander(f"👤 Runner Account: {user}", expanded=True):
                 m1, m2, m3, m4, m5 = st.columns(5)
@@ -127,7 +127,7 @@ with tab2:
                 
                 st.write("---")
                 col_table, col_chart = st.columns()
-                user_records = df_runs[df_runs["runner"].astype(str) == user].sort_values(by="date")
+                user_records = valid_runs[valid_runs["runner"].astype(str).str.strip() == user].sort_values(by="date")
                 
                 with col_table:
                     st.write("#### 🗓️ Log Sheets")
@@ -168,7 +168,7 @@ with tab2:
         st.subheader("📥 Export Data Reports")
         csv_data = helpers.make_csv(stats)
         try:
-            pdf_data = helpers.make_pdf_dataframe(stats, df_runs)
+            pdf_data = helpers.make_pdf_dataframe(stats, valid_runs)
             pdf_ready = True
         except Exception as e:
             st.error(f"Failed to generate PDF: {e}")
