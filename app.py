@@ -62,7 +62,7 @@ def check_user_login():
             # Clean and match string spaces
             user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == login_id]
             
-            # FIX: Used .values[0] to compare plain clean text string instead of array values
+            # FIX: Pull the first array value cleanly using [0] to match the raw hash string perfectly
             if not user_match.empty and str(user_match["password"].values[0]).strip() == helpers.hash_password(login_pw):
                 st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, False, 0; st.rerun()
             else:
