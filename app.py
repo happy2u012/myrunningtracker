@@ -62,7 +62,7 @@ def check_user_login():
             # Clean and match string spaces
             user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == login_id]
             
-            # FIX: Used .values[0] for direct value comparison to prevent row index mismatch crashes
+            # FIX: Used .values[0] to compare plain clean text string instead of array values
             if not user_match.empty and str(user_match["password"].values[0]).strip() == helpers.hash_password(login_pw):
                 st.session_state.logged_in_user, st.session_state.is_admin, st.session_state.login_attempts = login_id, False, 0; st.rerun()
             else:
@@ -94,7 +94,7 @@ with st.sidebar:
 tabs = st.tabs(["📊 My Running Records", "🏆 Global Leaderboard & Export", "⚙️ Admin Management Console"] if is_admin else ["📊 My Running Records", "🏆 Global Leaderboard & Export"])
 
 # --- Tab 1: Private Records Management ---
-with tabs[0]:
+with tabs:
     st.header(f"👟 Track Records for {current_user}")
     rec_tab1, rec_tab2 = st.tabs(["Add Performance Log", "View My History"])
     with rec_tab1:
@@ -116,7 +116,7 @@ with tabs[0]:
             st.dataframe(formatted_my_data, use_container_width=True, hide_index=True)
 
 # --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
-with tabs[1]:
+with tabs:
     st.header("🏆 Family Comparison Leaderboard")
     valid_runs = df_runs.dropna(subset=["runner", "distance", "duration"])
     if not valid_runs.empty and "date" in valid_runs.columns: valid_runs = valid_runs[valid_runs["date"].astype(str).str.strip() != ""]
@@ -159,8 +159,8 @@ with tabs[1]:
 
 # --- Tab 3: Exclusive Admin Console ---
 if is_admin and len(tabs) > 2:
-    with tabs[2]:
+    with tabs:
         st.header("⚙️ Master Admin Control Console")
         st.warning("Data deletion operations can be executed directly inside your cloud Google Spreadsheet.")
         st.subheader("Registered Account Matrix (Hashed)"); st.dataframe(df_users, use_container_width=True, hide_index=True)
-        st.subheader("Global Running History Matrix"); st.dataframe(df_runs, use_container_width=True, hide_index=True) 
+        st.subheader("Global Running History Matrix"); st.dataframe(df_runs, use_container_width=True, hide_index=True)
