@@ -57,14 +57,7 @@ def check_user_login():
     if st.session_state.logged_in_user is not None: return True
 
     st.title("🔒 Running Tracker Account Login")
-    
-    # 🔍 DYNAMIC DATABASE INSPECTOR FOR TROUBLESHOOTING
-    with st.expander("🔍 Live Cloud Database Inspector (Debug View)", expanded=False):
-        st.write("This tool shows exactly what your Streamlit app reads from your `users_url` link.")
-        st.write(f"**Detected Column Headers:** `{st.session_state.get('raw_user_cols', [])}`")
-        st.write("**Loaded Rows Count:**", len(df_users))
-        st.dataframe(df_users, use_container_width=True)
-
+   
     current_time = time.time()
     if st.session_state.login_attempts >= 5 and (st.session_state.lockout_time - current_time) > 0:
         st.error(f"🚨 System locked. Try again in {int(st.session_state.lockout_time - current_time)} seconds.")
