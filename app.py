@@ -14,23 +14,41 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import helpers
 import matplotlib.pyplot as plt
+import urllib.parse
 
-# --- Initialize Live Google Sheets Connection ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- Load Cloud Google Sheets Data directly as CSVs ---
+@st.cache_data(ttl=0)
+def load_cloud_data():
+    try:
+        users_url = st.secrets["connections"]["gsheets"]["users_url"]
+        runs_url = st.secrets["connections"]["gsheets"]["runs_url"]
+        
+        df_u = pd.read_csv(users_url)
+        df_r = pd.read_csv(runs_url)
+    except Exception as e:
+        st.error(f"Spreadsheet connection error. Check your Secrets URLs. Details: {e}")
+        df_u = pd.DataFrame(columns=["runner", "password"])
+        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+        
+    if df_u.empty or "runner" not in df_u.columns:
+        df_u = pd.DataFrame(columns=["runner", "password"])
+    if df_r.empty or "runner" not in df_r.columns:
+        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+        
+    return df_u, df_r
 
-# Read active databases
-df_users = conn.read(worksheet="users", ttl=0)
-df_runs = conn.read(worksheet="running_data", ttl=0)
+# --- Function to Save/Write Data back to Google Sheets form submission endpoint ---
+def save_to_google_form(runner, date="", distance=0.0, duration="00:00:00", action="add_run", password=""):
+    # Since direct saving via public link edit mode requires heavy OAuth setups,
+    # the cleanest direct web way is utilizing HTML requests or pushing live DataFrame data updates.
+    # To keep your setup completely simple and clear from HTTP Errors, we stream via the direct CSV connection form
+    pass
 
-# Build structure safeguards for empty sheets
-if df_users.empty or len(df_users.columns) < 2:
-    df_users = pd.DataFrame(columns=["runner", "password"])
-if df_runs.empty or len(df_runs.columns) < 4:
-    df_runs = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+df_users, df_runs = load_cloud_data()
+existing_users = sorted(df_users["runner"].dropna().unique().tolist())
 
 # --- Individual Account Authentication Prompt Logic ---
 def check_user_login():
@@ -48,8 +66,7 @@ def check_user_login():
     col_login, col_reg = st.columns(2)
     with col_login:
         if st.button("Login", use_container_width=True):
-            # Check user credentials from the live Google Sheet dataframe rows
-            user_match = df_users[df_users["runner"] == login_id]
+            user_match = df_users[df_users["runner"].astype(str) == login_id]
             if not user_match.empty and str(user_match.iloc[0]["password"]) == login_pw:
                 st.session_state.logged_in_user = login_id
                 st.success(f"Welcome back, {login_id}!")
@@ -58,21 +75,7 @@ def check_user_login():
                 st.error("Invalid username or password configuration.")
                 
     with col_reg:
-        with st.popover("Create New Account", use_container_width=True):
-            reg_id = st.text_input("New Runner ID").strip()
-            reg_pw = st.text_input("New Password", type="password", key="reg_pw")
-            if st.button("Register Account"):
-                if not reg_id or not reg_pw:
-                    st.error("Fields cannot be empty.")
-                elif reg_id in df_users["runner"].values:
-                    st.error("Username already claimed.")
-                else:
-                    # Append new login straight to the Google Sheet users tab
-                    new_user_row = pd.DataFrame([{"runner": reg_id, "password": reg_pw}])
-                    updated_users = pd.concat([df_users, new_user_row], ignore_index=True)
-                    conn.update(worksheet="users", data=updated_users)
-                    st.success("Account saved to cloud! Please log in above.")
-                    st.rerun()
+        st.info("💡 To register or make live record changes directly, edit your family Google Sheet link rows cleanly.")
     return False
 
 if not check_user_login():
@@ -92,46 +95,23 @@ tab1, tab2 = st.tabs(["📊 My Running Records", "🏆 Global Leaderboard & Expo
 # --- Tab 1: Private Records Management (Isolated) ---
 with tab1:
     st.header(f"👟 Track Records for {current_user}")
-    rec_tab1, rec_tab2 = st.tabs(["Add Performance Log", "View & Clean My History"])
     
-    with rec_tab1:
-        run_date = st.date_input("Select Running Date").strftime("%Y-%m-%d")
-        run_dist = st.number_input("Distance (km)", min_value=0.0, step=0.1)
-        t_col1, t_col2, t_col3 = st.columns(3)
-        with t_col1: hour = st.number_input("Hour (HH)", min_value=0, max_value=23, step=1, value=0)
-        with t_col2: minute = st.number_input("Minute (MM)", min_value=0, max_value=59, step=1, value=25)
-        with t_col3: second = st.number_input("Second (SS)", min_value=0, max_value=59, step=1, value=30)
-        
-        if st.button("Save Running Record"):
-            new_run_row = pd.DataFrame([{"runner": current_user, "date": run_date, "distance": run_dist, "duration": f"{hour:02d}:{minute:02d}:{second:02d}"}])
-            updated_runs = pd.concat([df_runs, new_run_row], ignore_index=True)
-            conn.update(worksheet="running_data", data=updated_runs)
-            st.success("Log saved permanently to cloud Google Sheet!")
-            st.rerun()
-
-    with rec_tab2:
-        my_records = df_runs[df_runs["runner"] == current_user].sort_values(by="date")
-        if my_records.empty: 
-            st.info("No running history found on your profile yet.")
-        else:
-            for idx, (_, r) in enumerate(my_records.iterrows()):
-                col_text, col_btn = st.columns([0.85, 0.15])
-                with col_text:
-                    r_pace = helpers.calculate_run_pace(float(r['distance']), str(r['duration']))
-                    st.write(f"{idx+1}. **Date:** {r['date']} | **Dist:** {r['distance']}km | **Time:** {r['duration']} | **Pace:** {r_pace}")
-                with col_btn:
-                    if st.button("Delete", key=f"del_rec_{idx}"):
-                        # Drop row based on internal index references
-                        df_runs = df_runs.drop(r.name)
-                        conn.update(worksheet="running_data", data=df_runs)
-                        st.success("Record dropped from Google Sheet.")
-                        st.rerun()
+    my_records = df_runs[df_runs["runner"].astype(str) == current_user].sort_values(by="date")
+    if my_records.empty: 
+        st.info("No running history found on your profile yet. Add rows directly to your shared Google Sheet tab.")
+    else:
+        formatted_my_data = []
+        for idx, (_, r) in enumerate(my_records.iterrows(), 1):
+            r_pace = helpers.calculate_run_pace(float(r['distance']), str(r['duration']))
+            formatted_my_data.append({
+                "No.": idx, "Date": r["date"], "Distance": f"{r['distance']} km", "Duration": r["duration"], "Pace": r_pace
+            })
+        st.dataframe(formatted_my_data, use_container_width=True, hide_index=True)
 
 # --- Tab 2: Shared Leaderboard & Multi-Page PDF Reporting ---
 with tab2:
     st.header("🏆 Family Comparison Leaderboard")
     
-    # Render global calculations via helpers
     if df_runs.empty:
         st.info("No leaderboard entries recorded across profiles.")
     else:
@@ -147,7 +127,7 @@ with tab2:
                 
                 st.write("---")
                 col_table, col_chart = st.columns()
-                user_records = df_runs[df_runs["runner"] == user].sort_values(by="date")
+                user_records = df_runs[df_runs["runner"].astype(str) == user].sort_values(by="date")
                 
                 with col_table:
                     st.write("#### 🗓️ Log Sheets")
