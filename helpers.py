@@ -182,4 +182,4 @@ def make_pdf_dataframe(stats, df_runs):
             if os.path.exists(chart_filename):
                 os.remove(chart_filename)
                 
-    return pdf.output(dest="S").encode("latin-1")
+    return bytes(pdf.output())
