@@ -24,7 +24,6 @@ if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
 
 def load_cloud_data():
     try:
-        # Appending a time timestamp forces Google Cloud to bypass cache parameters and return live rows
         ts = int(time.time())
         u_url = st.secrets["connections"]["gsheets"]["users_url"]
         r_url = st.secrets["connections"]["gsheets"]["runs_url"]
@@ -32,16 +31,24 @@ def load_cloud_data():
         u_sep = "&" if "?" in u_url else "?"
         r_sep = "&" if "?" in r_url else "?"
         
+        # Appending t=ts forces Google to bypass cache parameters and return live rows
         df_u = pd.read_csv(f"{u_url}{u_sep}t={ts}", on_bad_lines='skip')
         df_r = pd.read_csv(f"{r_url}{r_sep}t={ts}", on_bad_lines='skip')
     except Exception as e:
         st.error(f"Spreadsheet connection error: {e}")
-        df_u, df_r = pd.DataFrame(columns=["runner", "password"]), pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+        df_u = pd.DataFrame(columns=["runner", "password"])
+        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     
+    # Normalize column headers to lowercase strings
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
-    if "runner" not in df_u.columns or "password" not in df_u.columns: df_u = pd.DataFrame(columns=["runner", "password"])
-    if "runner" not in df_r.columns or "date" not in df_r.columns: df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+    
+    # If the sheet is completely blank, initialize columns safely
+    if df_u.empty or "runner" not in df_u.columns:
+        df_u = pd.DataFrame(columns=["runner", "password"])
+    if df_r.empty or "runner" not in df_r.columns:
+        df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+        
     return df_u, df_r
 
 df_users, df_runs = load_cloud_data()
@@ -78,7 +85,7 @@ def check_user_login():
             else:
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == login_id]
                 
-                # FIXED: Extracted the string directly out of the row array with [0] instead of converting the whole array wrapper to a string
+                # FIXED: Extracted direct scalar value using [0] to match the raw hash string perfectly
                 if not user_match.empty and str(user_match["password"].values[0]).strip() == helpers.hash_password(login_pw):
                     st.session_state.logged_in_user = login_id
                     st.session_state.is_admin = False
@@ -92,7 +99,6 @@ def check_user_login():
                     st.rerun()
                 
     with col_reg:
-        # Removed st.rerun from successful registration to keep the popover container open long enough to display success messages
         with st.popover("Create New Account", use_container_width=True):
             reg_id = st.text_input("Choose Runner ID", key="reg_user_input").strip()
             reg_pw = st.text_input("Choose Password", type="password", key="reg_pass_input")
@@ -118,7 +124,7 @@ with st.sidebar:
         st.session_state.is_admin = False
         st.rerun()
 
-# --- Unpacking Tabs to Prevent Layout TypeErrors ---
+# --- Unpacking Tabs ---
 if is_admin:
     tab_records, tab_leaderboard, tab_admin = st.tabs([
         "📊 My Running Records", 
@@ -165,7 +171,6 @@ with tab_leaderboard:
     if valid_runs.empty: st.info("No leaderboard entries recorded.")
     else:
         stats = helpers.calculate_stats_dataframe(valid_runs)
-        all_runners = list(stats.keys())
         for user, s in stats.items():
             with st.expander(f"👤 Runner Account: {user}", expanded=True):
                 m1, m2, m3, m4, m5 = st.columns(5)
@@ -193,7 +198,5 @@ if is_admin:
     with tab_admin:
         st.header("⚙️ Admin Management Console")
         st.success("Welcome authorized Administrator. System core running components stable.")
-        # Display summary tables of registered system users
         st.write("### 👥 System User Database Control")
         st.dataframe(df_users, use_container_width=True, hide_index=True)
-        

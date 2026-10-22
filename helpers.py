@@ -172,9 +172,15 @@ def make_pdf_dataframe(stats, df_runs):
                 plt.text(bar.get_width() + (max(distances)*0.02), bar.get_y() + bar.get_height()/2, f"{bar.get_width():.1f}k", va='center', ha='left', fontsize=8, fontweight='bold')
                 
             chart_filename = f"temp_chart_{user}.png"
-            plt.savefig(chart_filename, dpi=200, bbox_inches='tight'); plt.close()
-            if (297 - pdf.get_y() - 20) < (len(user_records)*4 + 50): pdf.add_page()
-            pdf.image(chart_filename, x=15, y=pdf.get_y() + 2, w=180)
-            if os.path.exists(chart_filename): os.remove(chart_filename)
+            plt.savefig(chart_filename, dpi=200, bbox_inches='tight')
+            plt.close()
             
-    return pdf.output(dest='S').encode('latin-1') if isinstance(pdf.output(dest='S'), str) else bytes(pdf.output(dest='S'))
+            if (297 - pdf.get_y() - 20) < (len(user_records)*4 + 50): 
+                pdf.add_page()
+            pdf.image(chart_filename, x=15, y=pdf.get_y() + 2, w=180)
+            
+            # FIXED: Safely clean up the generated file artifact
+            if os.path.exists(chart_filename):
+                os.remove(chart_filename)
+                
+    return pdf.output(dest="S").encode("latin-1")
