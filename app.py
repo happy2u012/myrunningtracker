@@ -1,6 +1,9 @@
 import streamlit as st
 
-# Simple Password Protection
+# FIX: st.set_page_config MUST be the absolute first Streamlit command executed
+st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wide")
+
+# --- Simple Password Protection Function ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state.password_correct = False
@@ -11,7 +14,7 @@ def check_password():
     st.title("🔒 My Running Tracker Login")
     password = st.text_input("Enter Password", type="password")
     if st.button("Login"):
-        if password == "highclassrunners!": # Change this to your password
+        if password == "highclassrunners!": 
             st.session_state.password_correct = True
             st.success("Access Granted!")
             st.rerun()
@@ -20,9 +23,9 @@ def check_password():
     return False
 
 if not check_password():
-    st.stop() # Stops execution here until the password is correct
+    st.stop() # Halts dashboard initialization until correct password matching
 
-import streamlit as st
+# --- Core Dependencies & Imports ---
 import json
 import os
 import helpers
@@ -40,7 +43,6 @@ def save_data(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wide")
 st.title("🏃 My Running Tracker Dashboard")
 
 if 'data' not in st.session_state:
@@ -127,7 +129,6 @@ with tab3:
         stats = helpers.calculate_stats(data)
         for user, s in stats.items():
             with st.expander(f"👤 Runner: {user}", expanded=True):
-                # FIX: Align all 5 core overview elements in exactly one row with specified sequence
                 m1, m2, m3, m4, m5 = st.columns(5)
                 m1.metric("Total Runs", f"{s['Total Days']} Days")
                 m2.metric("Cumulative Distance", f"{s['Total Distance (km)']} km")
@@ -137,9 +138,7 @@ with tab3:
 
                 st.write("---")
 
-                # Side-by-side columns (Left: History Table, Right: Mileage Chart)
                 col_table, col_chart = st.columns([4, 3])
-
                 user_records = data.get(user, [])
                 sorted_records = sorted(user_records, key=lambda x: x['date'])
 
@@ -160,7 +159,6 @@ with tab3:
                     if not user_records: st.info("Add running records to display chart visualizations.")
                     else:
                         fig, ax = plt.subplots(figsize=(6, max(2.5, len(sorted_records) * 0.4)))
-
                         labels = ["TOTAL"] + [run['date'] for run in sorted_records]
                         distances = [s['Total Distance (km)']] + [run['distance'] for run in sorted_records]
                         colors = ['#1f4e79'] + ['#a6c8e0'] * len(sorted_records)
@@ -181,6 +179,8 @@ with tab3:
 
         st.subheader("📥 Export Data")
         csv_data = helpers.make_csv(stats)
+        
+        # FIX: Completed the missing/truncated exception structure from previous paste
         try:
             pdf_data = helpers.make_pdf(stats, data)
             pdf_ready = True
