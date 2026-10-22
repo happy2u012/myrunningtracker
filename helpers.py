@@ -63,11 +63,13 @@ def calculate_stats_dataframe(df_runs):
         }
     return summary
 
-# --- Web App Script Write Bridge ---
+# --- Web App Script Write Bridge (FIXED WITH REDIRECT FOLLOWS) ---
 def post_to_google_sheet(payload):
     try:
         script_url = st.secrets["connections"]["gsheets"]["script_url"]
-        response = requests.post(script_url, data=json.dumps(payload))
+        # FIX: Explicitly pass allow_redirects=True and content headers to force Google App Script connection
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(script_url, data=json.dumps(payload), headers=headers, allow_redirects=True)
         return response.status_code == 200
     except Exception as e:
         st.error(f"Write failure: {e}")
