@@ -13,7 +13,7 @@ st.markdown("""
     
     /* --- 🖼️ FULL SCREEN BACKGROUND IMAGE STYLING --- */
     .stApp {
-        background-image: url("https://i.postimg.cc/SRHWtKV2/image-880568f1.jpg");
+        background-image: url("https://postimg.cc");
         background-attachment: fixed;
         background-size: cover;
         background-position: center;
@@ -74,6 +74,7 @@ def load_cloud_data():
         
     return df_u, df_r
 
+# Initial Data Load
 df_users, df_runs = load_cloud_data()
 existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist()) if "runner" in df_users.columns else []
 
@@ -102,6 +103,7 @@ def check_user_login():
                 st.session_state.logged_in_user = login_id
                 st.session_state.is_admin = True
                 st.session_state.login_attempts = 0
+                st.cache_data.clear()
                 st.rerun()
             
             # 2. Standard User Account Spreadsheet Row Matching Branch
@@ -117,6 +119,7 @@ def check_user_login():
                         st.session_state.logged_in_user = login_id
                         st.session_state.is_admin = False
                         st.session_state.login_attempts = 0
+                        st.cache_data.clear()
                         st.rerun()
                     else:
                         st.session_state.login_attempts += 1
@@ -147,12 +150,18 @@ def check_user_login():
 if not check_user_login(): st.stop()
 current_user, is_admin = st.session_state.logged_in_user, st.session_state.is_admin
 
+# 🧼 REFRESH STATE FIX FOR ADMINS: Forces re-reading users table upon successful session activation
+if is_admin:
+    df_users, df_runs = load_cloud_data()
+    existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist()) if "runner" in df_users.columns else []
+
 with st.sidebar:
     st.write(f"Logged in as: **{current_user}** " + ("(Admin ⚙️)" if is_admin else ""))
     if st.button("Log Out"): 
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
+
 if is_admin:
     tab_records, tab_leaderboard, tab_admin = st.tabs([
         "📊 My Running Records", 
@@ -164,7 +173,6 @@ else:
         "📊 My Running Records", 
         "🏆 Global Leaderboard & Export"
     ])
-
 # --- Tab 1: Private Records Management ---
 with tab_records:
     st.header(f"👟 Track Records for {current_user}")
@@ -185,13 +193,11 @@ with tab_records:
             else: st.error("Save failed.")
             
     with rec_tab2:
-        # Pull records and sort chronologically by date
         my_records = df_runs[df_runs["runner"].astype(str).str.strip() == current_user].sort_values(by="date")
         
         if my_records.empty:
             st.info("No running history found.")
         else:
-            # Build and display clean record data array ledger list
             formatted_my_data = []
             for i, (_, r) in enumerate(my_records.iterrows(), 1):
                 formatted_my_data.append({
@@ -203,26 +209,21 @@ with tab_records:
                 })
             st.dataframe(formatted_my_data, use_container_width=True, hide_index=True)
             
-            # --- ✏️ INDIVIDUAL INLINE MANAGEMENT CONTROL BOX ---
             st.write("---")
             with st.expander("🛠️ Manage a Specific Record Entry (Edit or Delete)", expanded=False):
                 st.write("Select the **No.** from the table above to modify or permanently remove it.")
                 
-                # Pick record line index dropdown select menu selection maps array dynamically
                 record_indices = [item["No."] for item in formatted_my_data]
                 selected_no = st.selectbox("Select Record Number to Modify/Delete:", options=record_indices)
                 
-                # Pre-load the current text values from the selected run
                 current_target_row = formatted_my_data[selected_no - 1]
                 raw_dist_float = float(current_target_row["Distance"].replace(" km", ""))
                 
-                # Parse existing HH:MM:SS duration string values safely
                 try:
                     ch, cm, cs = map(int, current_target_row["Duration"].split(":"))
                 except:
                     ch, cm, cs = 0, 25, 0
                 
-                # Render editing adjustment forms
                 edit_date = st.date_input("Modify Running Date", value=pd.to_datetime(current_target_row["Date"]))
                 edit_dist = st.number_input("Modify Distance (km)", min_value=0.0, step=0.1, value=raw_dist_float)
                 
@@ -265,7 +266,6 @@ with tab_records:
                             st.rerun()
                         else:
                             st.error("Failed to execute deletion request on spreadsheet.")
-
 # --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
 with tab_leaderboard:
     st.header("🏆 All Runners Leaderboard")
@@ -280,11 +280,8 @@ with tab_leaderboard:
         st.info("No leaderboard entries recorded yet. Add your first running record in the first tab!")
     else:
         stats = helpers.calculate_stats_dataframe(valid_runs)
-        
-        # --- DYNAMIC SORTING TO PIN CURRENT USER ON TOP ---
         raw_runners = list(stats.keys())
         
-        # Pull current user to the front if they have records, then append the rest
         if current_user in raw_runners:
             all_runners = [current_user] + [r for r in raw_runners if r != current_user]
         else:
@@ -292,8 +289,6 @@ with tab_leaderboard:
             
         for user in all_runners:
             s = stats[user]
-            
-            # Highlight the current user's title bar text
             is_me = (user == current_user)
             card_title = f"⭐ My Account Profile: {user} (You)" if is_me else f"👤 Runner Account: {user}"
             
@@ -317,40 +312,19 @@ with tab_leaderboard:
                 with col_chart:
                     st.write("#### 📊 Progress")
                     helpers.draw_mileage_chart(user_records, s["Total Distance (km)"], user)
-# --- EXPORT WIDGET CONTROL INTERFACE ---
+
     st.write("---")
     st.subheader("💾 Export Leaderboard Metrics")
     
     if len(all_runners) > 0:
-        selected_runners = st.multiselect(
-            "Select Runners to Include in Export File:",
-            options=all_runners,
-            default=all_runners
-        )
-        
+        selected_runners = st.multiselect("Select Runners to Include in Export File:", options=all_runners, default=all_runners)
         if selected_runners:
             filtered_stats = {k: v for k, v in stats.items() if k in selected_runners}
             ex_col1, ex_col2 = st.columns(2)
-            
             with ex_col1:
-                csv_data = helpers.make_csv(filtered_stats)
-                st.download_button(
-                    label="📥 Download Dataset as CSV",
-                    data=csv_data,
-                    file_name="running_leaderboard_export.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-                
+                st.download_button(label="📥 Download Dataset as CSV", data=helpers.make_csv(filtered_stats), file_name="running_leaderboard_export.csv", mime="text/csv", use_container_width=True)
             with ex_col2:
-                pdf_data = helpers.make_pdf_dataframe(filtered_stats, valid_runs)
-                st.download_button(
-                    label="📥 Download Performance Report as PDF",
-                    data=pdf_data,
-                    file_name="running_leaderboard_report.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+                st.download_button(label="📥 Download Performance Report as PDF", data=helpers.make_pdf_dataframe(filtered_stats, valid_runs), file_name="running_leaderboard_report.pdf", mime="application/pdf", use_container_width=True)
         else:
             st.warning("Please choose at least one runner from the selector dropdown menu to export files.")
     else:
@@ -362,13 +336,6 @@ if is_admin:
         st.header("⚙️ Admin Management Console")
         st.success("Welcome authorized Administrator. Core user identity systems active.")
         
-        # 🧼 CRITICAL REFRESH FIX: Ensure we have the latest user list directly from the dataframe column
-        admin_user_list = []
-        if 'df_users' in locals() and not df_users.empty and 'runner' in df_users.columns:
-            admin_user_list = [str(x).strip() for x in df_users['runner'].dropna().unique() if str(x).strip() != ""]
-        elif 'existing_users' in locals():
-            admin_user_list = existing_users
-
         admin_col1, admin_col2 = st.columns(2)
         
         with admin_col1:
@@ -379,60 +346,50 @@ if is_admin:
             if st.button("Create Account Profile", use_container_width=True):
                 if not new_id or not new_pw:
                     st.error("Both user account fields are required.")
-                elif new_id in admin_user_list:
+                elif new_id in existing_users:
                     st.error("This Runner ID already exists inside the database.")
                 elif len(new_pw) < 6:
                     st.error("Password string must be at least 6 characters.")
                 else:
-                    payload = {
-                        "sheet": "users", 
-                        "action": "create", 
-                        "runner": new_id, 
-                        "password": helpers.hash_password(new_pw)
-                    }
+                    payload = {"sheet": "users", "action": "create", "runner": new_id, "password": helpers.hash_password(new_pw)}
                     if helpers.post_to_google_sheet(payload):
                         st.success(f"Profile for '{new_id}' provisioned successfully!")
                         st.cache_data.clear()
                         st.rerun()
-                    else:
-                        st.error("Provisioning backend failed to append row.")
+                    else: st.error("Provisioning backend failed to append row.")
                         
         with admin_col2:
             st.write("### 🗑️ Deprovision User Account Profile")
-            if len(admin_user_list) > 0:
-                user_to_delete = st.selectbox("Select Profile to Permanently Delete:", options=admin_user_list)
+            if len(existing_users) > 0:
+                user_to_delete = st.selectbox("Select Profile to Permanently Delete:", options=existing_users)
                 confirm_delete = st.checkbox(f"I confirm I want to permanently delete user account: **{user_to_delete}**")
                 
                 if st.button("Delete Account Profile", type="primary", use_container_width=True):
                     if not confirm_delete:
                         st.warning("Please check the confirmation safety box before running account deletions.")
                     else:
-                        payload = {
-                            "sheet": "users", 
-                            "action": "delete", 
-                            "runner": user_to_delete
-                        }
+                        payload = {"sheet": "users", "action": "delete", "runner": user_to_delete}
                         if helpers.post_to_google_sheet(payload):
                             st.success(f"Account profile '{user_to_delete}' has been completely removed.")
                             st.cache_data.clear()
                             st.rerun()
-                        else:
-                            st.error("Deletion API endpoint returned a processing execution failure.")
+                        else: st.error("Deletion API endpoint returned a processing execution failure.")
             else:
                 st.info("No active runner account profiles found to drop.")
 
         st.write("---")
         st.write("### 👥 Master Identity Row Ledger Preview")
-        if 'df_users' in locals() and not df_users.empty:
+        if not df_users.empty:
             st.dataframe(df_users, use_container_width=True, hide_index=True)
         else:
-            st.warning("User database ledger dataframe is uninitialized or empty.")
+            st.warning("User database ledger dataframe is empty or uninitialized.")
 
 # --- BACKUP MAIN SCREEN DOCK FOOTER BUTTONS ---
 st.write("---")
 c_foot1, c_foot2 = st.columns(2)
 with c_foot2:
-    if st.button("🚪 Leave Application / Log Out", use_container_width=True):
+    if st.button("🚪 Leave Application / Log Out", use_container_width=True, key="admin_footer_logout"):
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
+        
