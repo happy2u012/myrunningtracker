@@ -48,20 +48,18 @@ if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
 
 def load_cloud_data():
     try:
-        ts = int(time.time())
-        u_url = st.secrets["connections"]["gsheets"]["users_url"]
-        r_url = st.secrets["connections"]["gsheets"]["runs_url"]
+        # Pull your primary Apps Script Macro URL using your exact secret configuration key name
+        script_url = st.secrets["connections"]["gsheets"]["script_url"]
         
-        u_sep = "&" if "?" in u_url else "?"
-        r_sep = "&" if "?" in r_url else "?"
-        
-        df_u = pd.read_csv(f"{u_url}{u_sep}t={ts}", on_bad_lines='skip')
-        df_r = pd.read_csv(f"{r_url}{r_sep}t={ts}", on_bad_lines='skip')
+        # Pull your database tables dynamically through your Google macro endpoint link
+        df_u = pd.read_csv(f"{script_url}?sheet=users", on_bad_lines='skip')
+        df_r = pd.read_csv(f"{script_url}?sheet=running_data", on_bad_lines='skip')
     except Exception as e:
-        st.error(f"Spreadsheet connection error: {e}")
+        st.error(f"Live Apps Script API connection link error: {e}")
         df_u = pd.DataFrame(columns=["runner", "password"])
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     
+    # Normalize data column headers safely to lowercase strings
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
     
@@ -105,7 +103,6 @@ def check_user_login():
             else:
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
                 if not user_match.empty:
-                    # ✅ FIXED ATTRIBUTE ERROR MATCH: Target the first mapped index dict dictionary safely
                     user_record = user_match.to_dict(orient="records")[0]
                     stored_hash = str(user_record.get("password", "")).strip().lower()
                     input_hash = str(helpers.hash_password(login_pw)).strip().lower()
