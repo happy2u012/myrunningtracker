@@ -13,7 +13,7 @@ st.markdown("""
     
     /* --- 🖼️ ORIGINAL FULL SCREEN BACKGROUND IMAGE STYLING --- */
     .stApp {
-        background-image: url("https://i.postimg.cc/SRHWtKV2/image-880568f1.jpg");
+        background-image: url("https://postimg.cc");
         background-attachment: fixed;
         background-size: cover;
         background-position: center;
@@ -103,6 +103,7 @@ def check_user_login():
             else:
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
                 if not user_match.empty:
+                    # ✅ FIXED DICTIONARY TARGETING: Extracts row data inside index 0 safely
                     user_record = user_match.to_dict(orient="records")[0]
                     stored_hash = str(user_record.get("password", "")).strip().lower()
                     input_hash = str(helpers.hash_password(login_pw)).strip().lower()
@@ -391,3 +392,4 @@ with c_foot2:
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
+        
