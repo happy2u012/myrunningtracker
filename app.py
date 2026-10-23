@@ -49,6 +49,7 @@ if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
 def load_cloud_data():
     try:
         script_url = st.secrets["connections"]["gsheets"]["script_url"]
+        
         df_u = pd.read_csv(f"{script_url}?sheet=users", on_bad_lines='skip')
         df_r = pd.read_csv(f"{script_url}?sheet=running_data", on_bad_lines='skip')
     except Exception as e:
@@ -61,8 +62,15 @@ def load_cloud_data():
     
     if df_u.empty or "runner" not in df_u.columns:
         df_u = pd.DataFrame(columns=["runner", "password"])
+        
     if df_r.empty or "runner" not in df_r.columns:
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
+    else:
+        # 🚀 CLEANUP CONSTRAINTS: String-parse timestamps down to clean human formats
+        if "date" in df_r.columns:
+            df_r["date"] = df_r["date"].astype(str).apply(lambda x: x.split(" ")[0] if " " in x else x)
+        if "duration" in df_r.columns:
+            df_r["duration"] = df_r["duration"].astype(str).apply(lambda x: x.split(" ")[3] if len(x.split(" ")) > 3 else x)
         
     return df_u, df_r
 
@@ -397,4 +405,3 @@ with c_foot2:
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
-        
