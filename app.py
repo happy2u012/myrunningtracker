@@ -169,17 +169,72 @@ with tab_records:
                 st.rerun()
             else: st.error("Save failed.")
     with rec_tab2:
+        # Pull records and sort chronologically by date
         my_records = df_runs[df_runs["runner"].astype(str).str.strip() == current_user].sort_values(by="date")
-        if my_records.empty: st.info("No running history found.")
+        
+        if my_records.empty:
+            st.info("No running history found.")
         else:
-            formatted_my_data = [{"No.": i, "Date": r["date"], "Distance": f"{r['distance']} km", "Duration": r["duration"], "Pace": helpers.calculate_run_pace(float(r['distance']), str(r['duration']))} for i, (_, r) in enumerate(my_records.iterrows(), 1)]
+            # Build and display clean record data array ledger list
+            formatted_my_data = []
+            for i, (_, r) in enumerate(my_records.iterrows(), 1):
+                formatted_my_data.append({
+                    "No.": i, 
+                    "Date": r["date"], 
+                    "Distance": f"{r['distance']} km", 
+                    "Duration": r["duration"], 
+                    "Pace": helpers.calculate_run_pace(float(r['distance']), str(r['duration']))
+                })
             st.dataframe(formatted_my_data, use_container_width=True, hide_index=True)
+            
+            # --- ✏️ INDIVIDUAL INLINE EDITING CONTROL BOX ---
+            st.write("---")
+            with st.expander("✏️ Edit a Specific Record Entry (Modify Mistakes)", expanded=False):
+                st.write("Select the **No.** from the table above to safely adjust its parameters.")
+                
+                # Pick record line index dropdown select menu selection maps array dynamically
+                record_indices = [item["No."] for item in formatted_my_data]
+                selected_no = st.selectbox("Select Record Number to Modify:", options=record_indices)
+                
+                # Pre-load the current text values from the selected run
+                current_target_row = formatted_my_data[selected_no - 1]
+                raw_dist_float = float(current_target_row["Distance"].replace(" km", ""))
+                
+                # Parse existing HH:MM:SS duration string values safely
+                try:
+                    ch, cm, cs = map(int, current_target_row["Duration"].split(":"))
+                except:
+                    ch, cm, cs = 0, 25, 0
+                
+                # Render editing adjustment forms
+                edit_date = st.date_input("Modify Running Date", value=pd.to_datetime(current_target_row["Date"]))
+                edit_dist = st.number_input("Modify Distance (km)", min_value=0.0, step=0.1, value=raw_dist_float)
+                
+                ec1, ec2, ec3 = st.columns(3)
+                with ec1: edit_hour = st.number_input("Edit Hour", min_value=0, max_value=23, value=ch)
+                with ec2: edit_min = st.number_input("Edit Minute", min_value=0, max_value=59, value=cm)
+                with ec3: edit_sec = st.number_input("Edit Second", min_value=0, max_value=59, value=cs)
+                
+                if st.button("Save Entry Modifications", type="primary", use_container_width=True):
+                    payload = {
+                        "sheet": "running_data",
+                        "action": "edit",
+                        "record_index": selected_no,
+                        "runner": current_user,
+                        "date": edit_date.strftime("%Y-%m-%d"),
+                        "distance": edit_dist,
+                        "duration": f"{edit_hour:02d}:{edit_min:02d}:{edit_sec:02d}"
+                    }
+                    if helpers.post_to_google_sheet(payload):
+                        st.success(f"Record No. {selected_no} updated successfully inside Google Sheet!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("Failed to transmit dataset modification updates to spreadsheet server pipeline.")
 
 # --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
 with tab_leaderboard:
-    st.header("🏆 All Runners Leaderboard")
-    
-    # Initialize variables cleanly so they exist regardless of conditions
+    st.header("🏆 Family Comparison Leaderboard")
     all_runners = []
     stats = {}
     
@@ -213,8 +268,7 @@ with tab_leaderboard:
                 with col_chart:
                     st.write("#### 📊 Progress")
                     helpers.draw_mileage_chart(user_records, s["Total Distance (km)"], user)
-
-    # --- EXPORT WIDGET CONTROL INTERFACE ---
+# --- EXPORT WIDGET CONTROL INTERFACE ---
     st.write("---")
     st.subheader("💾 Export Leaderboard Metrics")
     
@@ -314,3 +368,12 @@ if is_admin:
         st.write("---")
         st.write("### 👥 Master Identity Row Ledger Preview")
         st.dataframe(df_users, use_container_width=True, hide_index=True)
+
+# --- BACKUP MAIN SCREEN DOCK FOOTER BUTTONS ---
+st.write("---")
+c_foot1, c_foot2 = st.columns(2)
+with c_foot2:
+    if st.button("🚪 Leave Application / Log Out", use_container_width=True):
+        st.session_state.logged_in_user = None
+        st.session_state.is_admin = False
+        st.rerun()
