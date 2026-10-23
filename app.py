@@ -3,7 +3,7 @@ import streamlit as st
 # MUST be the absolute first Streamlit execution command
 st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wide")
 
-# --- CSS Injection to Hide GitHub Icons, Streamlit Menu, and Footer ---
+# --- CSS Injection to Hide Icons, Footers, and Add Background Image ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -11,13 +11,27 @@ st.markdown("""
     header {visibility: hidden;}
     .viewerBadge_container__1QS1Y {display: none !important;}
     
+    /* --- 🖼️ FULL SCREEN BACKGROUND IMAGE STYLING --- */
+    .stApp {
+        background-image: url("https://github.com/happy2u012/myrunningtracker/blob/main/image_880568f1.jpg?raw=true");
+        background-attachment: fixed;
+        background-size: cover;
+        background-position: center;
+    }
+    
+    /* --- 🌆 Semi-transparent container card panels for perfect readability --- */
+    div[data-testid="stExpander"], .stTabs, div[data-testid="stForm"] {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        padding: 1.5rem !important;
+        border-radius: 10px !important;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1) !important;
+    }
+    
     /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
-    /* Only apply password security styling on screens wider than a mobile phone */
     @media (min-width: 768px) {
         input[type="password"] {-webkit-text-security: square;}
     }
     
-    /* Force form containers and tables to wrap smoothly on narrow viewports */
     div[data-testid="stHorizontalBlock"] {
         gap: 1rem !important;
     }
