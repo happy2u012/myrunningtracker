@@ -154,7 +154,8 @@ else:
 # --- Tab 1: Private Records Management ---
 with tab_records:
     st.header(f"👟 Track Records for {current_user}")
-    rec_tab1, rec_tab2 = st.tabs(["Add Performance Log", "View My History"])
+    rec_tab1, rec_tab2 = st.tabs(["Add Performance Log", "View, Edit & Delete History"])
+    
     with rec_tab1:
         run_date = st.date_input("Select Running Date").strftime("%Y-%m-%d")
         run_dist = st.number_input("Distance (km)", min_value=0.0, step=0.1)
@@ -162,12 +163,13 @@ with tab_records:
         with t_col1: hour = st.number_input("Hour (HH)", min_value=0, max_value=23, step=1, value=0)
         with t_col2: minute = st.number_input("Minute (MM)", min_value=0, max_value=59, step=1, value=25)
         with t_col3: second = st.number_input("Second (SS)", min_value=0, max_value=59, step=1, value=30)
-        if st.button("Save Running Record"):
+        if st.button("Save Running Record", use_container_width=True):
             if helpers.post_to_google_sheet({"sheet": "running_data", "runner": current_user, "date": run_date, "distance": run_dist, "duration": f"{hour:02d}:{minute:02d}:{second:02d}"}):
                 st.success("Log saved to Google Sheet!")
                 st.cache_data.clear()
                 st.rerun()
             else: st.error("Save failed.")
+            
     with rec_tab2:
         # Pull records and sort chronologically by date
         my_records = df_runs[df_runs["runner"].astype(str).str.strip() == current_user].sort_values(by="date")
@@ -187,14 +189,14 @@ with tab_records:
                 })
             st.dataframe(formatted_my_data, use_container_width=True, hide_index=True)
             
-            # --- ✏️ INDIVIDUAL INLINE EDITING CONTROL BOX ---
+            # --- ✏️ INDIVIDUAL INLINE MANAGEMENT CONTROL BOX ---
             st.write("---")
-            with st.expander("✏️ Edit a Specific Record Entry (Modify Mistakes)", expanded=False):
-                st.write("Select the **No.** from the table above to safely adjust its parameters.")
+            with st.expander("🛠️ Manage a Specific Record Entry (Edit or Delete)", expanded=False):
+                st.write("Select the **No.** from the table above to modify or permanently remove it.")
                 
                 # Pick record line index dropdown select menu selection maps array dynamically
                 record_indices = [item["No."] for item in formatted_my_data]
-                selected_no = st.selectbox("Select Record Number to Modify:", options=record_indices)
+                selected_no = st.selectbox("Select Record Number to Modify/Delete:", options=record_indices)
                 
                 # Pre-load the current text values from the selected run
                 current_target_row = formatted_my_data[selected_no - 1]
@@ -215,22 +217,40 @@ with tab_records:
                 with ec2: edit_min = st.number_input("Edit Minute", min_value=0, max_value=59, value=cm)
                 with ec3: edit_sec = st.number_input("Edit Second", min_value=0, max_value=59, value=cs)
                 
-                if st.button("Save Entry Modifications", type="primary", use_container_width=True):
-                    payload = {
-                        "sheet": "running_data",
-                        "action": "edit",
-                        "record_index": selected_no,
-                        "runner": current_user,
-                        "date": edit_date.strftime("%Y-%m-%d"),
-                        "distance": edit_dist,
-                        "duration": f"{edit_hour:02d}:{edit_min:02d}:{edit_sec:02d}"
-                    }
-                    if helpers.post_to_google_sheet(payload):
-                        st.success(f"Record No. {selected_no} updated successfully inside Google Sheet!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error("Failed to transmit dataset modification updates to spreadsheet server pipeline.")
+                btn_col1, btn_col2 = st.columns(2)
+                
+                with btn_col1:
+                    if st.button("💾 Save Entry Modifications", type="primary", use_container_width=True):
+                        payload = {
+                            "sheet": "running_data",
+                            "action": "edit",
+                            "record_index": selected_no,
+                            "runner": current_user,
+                            "date": edit_date.strftime("%Y-%m-%d"),
+                            "distance": edit_dist,
+                            "duration": f"{edit_hour:02d}:{edit_min:02d}:{edit_sec:02d}"
+                        }
+                        if helpers.post_to_google_sheet(payload):
+                            st.success(f"Record No. {selected_no} updated successfully!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("Failed to transmit dataset modification updates to spreadsheet.")
+                            
+                with btn_col2:
+                    if st.button("🗑️ Delete This Record Entry", type="secondary", use_container_width=True):
+                        payload = {
+                            "sheet": "running_data",
+                            "action": "delete_record",
+                            "record_index": selected_no,
+                            "runner": current_user
+                        }
+                        if helpers.post_to_google_sheet(payload):
+                            st.success(f"Record No. {selected_no} deleted successfully!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("Failed to execute deletion request on spreadsheet.")
 
 # --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
 with tab_leaderboard:

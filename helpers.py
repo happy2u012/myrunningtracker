@@ -75,12 +75,17 @@ def post_to_google_sheet(payload):
 
 # --- Web Mileage Bar Chart Generation ---
 def draw_mileage_chart(user_records, total_distance, user_name):
+    import matplotlib.pyplot as plt
+    plt.clf() # 🧼 CRITICAL FIX: Completely wipes old chart layers and cached labels
+
     fig, ax = plt.subplots(figsize=(6, max(2.5, len(user_records) * 0.4)))
     labels = [str(run['date']) for _, run in user_records.iterrows()] + ["TOTAL"]
     distances = [float(run['distance']) for _, run in user_records.iterrows()] + [total_distance]
     colors = ['#a6c8e0'] * len(user_records) + ['#1f4e79']
     
     bars = ax.barh(labels, distances, color=colors, height=0.6)
+    #  USE THE BLURRED VARIABLE HERE TO ADD A CUSTOM TITLE:
+    ax.set_title(f"📊 Mileage Progression for {user_name}", fontsize=10, fontweight='bold', pad=10)
     ax.set_xlabel("Distance (km)", fontsize=9, fontweight='bold')
     ax.invert_yaxis()
     ax.spines['top'].set_visible(False)
