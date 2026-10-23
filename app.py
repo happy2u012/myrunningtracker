@@ -362,6 +362,13 @@ if is_admin:
         st.header("⚙️ Admin Management Console")
         st.success("Welcome authorized Administrator. Core user identity systems active.")
         
+        # 🧼 CRITICAL REFRESH FIX: Ensure we have the latest user list directly from the dataframe column
+        admin_user_list = []
+        if 'df_users' in locals() and not df_users.empty and 'runner' in df_users.columns:
+            admin_user_list = [str(x).strip() for x in df_users['runner'].dropna().unique() if str(x).strip() != ""]
+        elif 'existing_users' in locals():
+            admin_user_list = existing_users
+
         admin_col1, admin_col2 = st.columns(2)
         
         with admin_col1:
@@ -372,7 +379,7 @@ if is_admin:
             if st.button("Create Account Profile", use_container_width=True):
                 if not new_id or not new_pw:
                     st.error("Both user account fields are required.")
-                elif new_id in existing_users:
+                elif new_id in admin_user_list:
                     st.error("This Runner ID already exists inside the database.")
                 elif len(new_pw) < 6:
                     st.error("Password string must be at least 6 characters.")
@@ -392,8 +399,8 @@ if is_admin:
                         
         with admin_col2:
             st.write("### 🗑️ Deprovision User Account Profile")
-            if len(existing_users) > 0:
-                user_to_delete = st.selectbox("Select Profile to Permanently Delete:", options=existing_users)
+            if len(admin_user_list) > 0:
+                user_to_delete = st.selectbox("Select Profile to Permanently Delete:", options=admin_user_list)
                 confirm_delete = st.checkbox(f"I confirm I want to permanently delete user account: **{user_to_delete}**")
                 
                 if st.button("Delete Account Profile", type="primary", use_container_width=True):
@@ -416,7 +423,10 @@ if is_admin:
 
         st.write("---")
         st.write("### 👥 Master Identity Row Ledger Preview")
-        st.dataframe(df_users, use_container_width=True, hide_index=True)
+        if 'df_users' in locals() and not df_users.empty:
+            st.dataframe(df_users, use_container_width=True, hide_index=True)
+        else:
+            st.warning("User database ledger dataframe is uninitialized or empty.")
 
 # --- BACKUP MAIN SCREEN DOCK FOOTER BUTTONS ---
 st.write("---")
