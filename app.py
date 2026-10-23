@@ -13,7 +13,7 @@ st.markdown("""
     
     /* --- 🖼️ FULL SCREEN BACKGROUND IMAGE STYLING --- */
     .stApp {
-        background-image: url("https://github.com/happy2u012/myrunningtracker/blob/53b17e0c92322fb21b649a37b27dfee6a7a8ae2c/image_880568f1.jpg");
+        background-image: url("https://raw.githubusercontent.com/happy2u012/myrunningtracker/main/image_880568f1.jpg");
         background-attachment: fixed;
         background-size: cover;
         background-position: center;
