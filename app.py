@@ -266,9 +266,24 @@ with tab_leaderboard:
         st.info("No leaderboard entries recorded yet. Add your first running record in the first tab!")
     else:
         stats = helpers.calculate_stats_dataframe(valid_runs)
-        all_runners = list(stats.keys())
-        for user, s in stats.items():
-            with st.expander(f"👤 Runner Account: {user}", expanded=True):
+        
+        # --- DYNAMIC SORTING TO PIN CURRENT USER ON TOP ---
+        raw_runners = list(stats.keys())
+        
+        # Pull current user to the front if they have records, then append the rest
+        if current_user in raw_runners:
+            all_runners = [current_user] + [r for r in raw_runners if r != current_user]
+        else:
+            all_runners = raw_runners
+            
+        for user in all_runners:
+            s = stats[user]
+            
+            # Highlight the current user's title bar text
+            is_me = (user == current_user)
+            card_title = f"⭐ My Account Profile: {user} (You)" if is_me else f"👤 Runner Account: {user}"
+            
+            with st.expander(card_title, expanded=is_me):
                 m1, m2, m3, m4, m5 = st.columns(5)
                 m1.metric("Total Runs", f"{s['Total Days']} Days")
                 m2.metric("Cumulative Distance", f"{s['Total Distance (km)']} km")
