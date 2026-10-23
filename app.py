@@ -139,7 +139,6 @@ with st.sidebar:
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
-# --- Unpacking Tabs ---
 if is_admin:
     tab_records, tab_leaderboard, tab_admin = st.tabs([
         "📊 My Running Records", 
@@ -258,6 +257,60 @@ with tab_leaderboard:
 if is_admin:
     with tab_admin:
         st.header("⚙️ Admin Management Console")
-        st.success("Welcome authorized Administrator. System core running components stable.")
-        st.write("### 👥 System User Database Control")
+        st.success("Welcome authorized Administrator. Core user identity systems active.")
+        
+        admin_col1, admin_col2 = st.columns(2)
+        
+        with admin_col1:
+            st.write("### ➕ Provision New User Profile")
+            new_id = st.text_input("Assign Runner ID", key="admin_new_user").strip()
+            new_pw = st.text_input("Assign Temp Password", type="password", key="admin_new_pass")
+            
+            if st.button("Create Account Profile", use_container_width=True):
+                if not new_id or not new_pw:
+                    st.error("Both user account fields are required.")
+                elif new_id in existing_users:
+                    st.error("This Runner ID already exists inside the database.")
+                elif len(new_pw) < 6:
+                    st.error("Password string must be at least 6 characters.")
+                else:
+                    payload = {
+                        "sheet": "users", 
+                        "action": "create", 
+                        "runner": new_id, 
+                        "password": helpers.hash_password(new_pw)
+                    }
+                    if helpers.post_to_google_sheet(payload):
+                        st.success(f"Profile for '{new_id}' provisioned successfully!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("Provisioning backend failed to append row.")
+                        
+        with admin_col2:
+            st.write("### 🗑️ Deprovision User Account Profile")
+            if len(existing_users) > 0:
+                user_to_delete = st.selectbox("Select Profile to Permanently Delete:", options=existing_users)
+                confirm_delete = st.checkbox(f"I confirm I want to permanently delete user account: **{user_to_delete}**")
+                
+                if st.button("Delete Account Profile", type="primary", use_container_width=True):
+                    if not confirm_delete:
+                        st.warning("Please check the confirmation safety box before running account deletions.")
+                    else:
+                        payload = {
+                            "sheet": "users", 
+                            "action": "delete", 
+                            "runner": user_to_delete
+                        }
+                        if helpers.post_to_google_sheet(payload):
+                            st.success(f"Account profile '{user_to_delete}' has been scrubbed from records.")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("Deletion API endpoint returned a processing execution failure.")
+            else:
+                st.info("No active runner account profiles found to drop.")
+
+        st.write("---")
+        st.write("### 👥 Master Identity Row Ledger Preview")
         st.dataframe(df_users, use_container_width=True, hide_index=True)
