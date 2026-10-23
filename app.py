@@ -49,8 +49,6 @@ if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
 def load_cloud_data():
     try:
         script_url = st.secrets["connections"]["gsheets"]["script_url"]
-        
-        # Read from the direct live text output string stream
         df_u = pd.read_csv(f"{script_url}?sheet=users", on_bad_lines='skip')
         df_r = pd.read_csv(f"{script_url}?sheet=running_data", on_bad_lines='skip')
     except Exception as e:
@@ -72,6 +70,7 @@ def load_cloud_data():
 df_users, df_runs = load_cloud_data()
 existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist()) if "runner" in df_users.columns else []
 
+# --- User Account Authentication Interface ---
 def check_user_login():
     if "logged_in_user" not in st.session_state: st.session_state.logged_in_user = None
     if "is_admin" not in st.session_state: st.session_state.is_admin = False
@@ -95,11 +94,11 @@ def check_user_login():
                 st.session_state.logged_in_user = login_id
                 st.session_state.is_admin = True
                 st.session_state.login_attempts = 0
+                st.cache_data.clear()
                 st.rerun()
             else:
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
                 if not user_match.empty:
-                    # ✅ FIXED RECORD MAPPING: Extends parsing as row index 0 to eliminate login failures
                     user_record = user_match.to_dict(orient="records")[0]
                     stored_hash = str(user_record.get("password", "")).strip().lower()
                     input_hash = str(helpers.hash_password(login_pw)).strip().lower()
@@ -108,6 +107,7 @@ def check_user_login():
                         st.session_state.logged_in_user = login_id
                         st.session_state.is_admin = False
                         st.session_state.login_attempts = 0
+                        st.cache_data.clear()
                         st.rerun()
                     else:
                         st.session_state.login_attempts += 1
@@ -133,6 +133,7 @@ def check_user_login():
                     else:
                         if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": helpers.hash_password(reg_pw)}):
                             st.success("Account created! You can now log in.")
+                            st.cache_data.clear()
                         else: 
                             st.error("Registration failed.")
     return False
@@ -180,6 +181,7 @@ with tab_records:
                 formatted_date = run_date.strftime("%Y-%m-%d")
                 if helpers.post_to_google_sheet({"sheet": "running_data", "runner": current_user, "date": formatted_date, "distance": run_dist, "duration": f"{hour:02d}:{minute:02d}:{second:02d}"}):
                     st.success("Log saved to Google Sheet!")
+                    st.cache_data.clear()
                     st.rerun()
                 else: st.error("Save failed.")
             
@@ -215,7 +217,17 @@ with tab_records:
                 except:
                     ch, cm, cs = 0, 25, 0
                 
-                edit_date = st.date_input("Modify Running Date", value=pd.to_datetime(current_target_row["Date"]))
+                # ✅ DATEPARSEERROR FIX: Implement protective coercion parsing to prevent crashing on invalid API values
+                try:
+                    parsed_value_date = pd.to_datetime(current_target_row["Date"], errors='coerce', format='mixed')
+                    if pd.isna(parsed_value_date):
+                        fallback_default_date = pd.Timestamp.now()
+                    else:
+                        fallback_default_date = parsed_value_date
+                except:
+                    fallback_default_date = pd.Timestamp.now()
+                
+                edit_date = st.date_input("Modify Running Date", value=fallback_default_date)
                 edit_dist = st.number_input("Modify Distance (km)", min_value=0.0, step=0.1, value=raw_dist_float)
                 
                 ec1, ec2, ec3 = st.columns(3)
@@ -238,6 +250,7 @@ with tab_records:
                         }
                         if helpers.post_to_google_sheet(payload):
                             st.success(f"Record No. {selected_no} updated successfully!")
+                            st.cache_data.clear()
                             st.rerun()
                         else:
                             st.error("Failed to transmit dataset modification updates to spreadsheet.")
@@ -252,6 +265,7 @@ with tab_records:
                         }
                         if helpers.post_to_google_sheet(payload):
                             st.success(f"Record No. {selected_no} deleted successfully!")
+                            st.cache_data.clear()
                             st.rerun()
                         else:
                             st.error("Failed to execute deletion request on spreadsheet.")
@@ -345,6 +359,7 @@ if is_admin:
                         payload = {"sheet": "users", "action": "create", "runner": new_id, "password": helpers.hash_password(new_pw)}
                         if helpers.post_to_google_sheet(payload):
                             st.success(f"Profile for '{new_id}' provisioned successfully!")
+                            st.cache_data.clear()
                             st.rerun()
                         else: st.error("Provisioning backend failed to append row.")
                         
@@ -361,6 +376,7 @@ if is_admin:
                         payload = {"sheet": "users", "action": "delete", "runner": user_to_delete}
                         if helpers.post_to_google_sheet(payload):
                             st.success(f"Account profile '{user_to_delete}' has been completely removed.")
+                            st.cache_data.clear()
                             st.rerun()
                         else: st.error("Deletion API endpoint returned a processing execution failure.")
             else:
@@ -381,3 +397,4 @@ with c_foot2:
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
+        
