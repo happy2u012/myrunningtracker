@@ -178,7 +178,7 @@ with tab_records:
 
 # --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
 with tab_leaderboard:
-    st.header("🏆 Family Comparison Leaderboard")
+    st.header("🏆 All Runners Leaderboard")
     
     # Initialize variables cleanly so they exist regardless of conditions
     all_runners = []

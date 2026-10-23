@@ -132,7 +132,7 @@ def make_pdf_dataframe(stats, df_runs):
         pdf.cell(40, 7, txt=s['Total Time'], border=1, align="C")
         pdf.cell(40, 7, txt=f"{s['Avg Distance (km)']} km", border=1, align="C")
         pdf.cell(40, 7, txt=s['Avg Pace'], border=1, align="C")
-        pdf.ln(6)
+        pdf.ln(10)
         
         user_records = df_runs[df_runs["runner"] == user].sort_values(by="date")
         table_height_mm = 6 + (len(user_records) * 6) + 6
