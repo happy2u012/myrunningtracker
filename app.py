@@ -254,7 +254,7 @@ with tab_records:
 
 # --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
 with tab_leaderboard:
-    st.header("🏆 Family Comparison Leaderboard")
+    st.header("🏆 All Runners Leaderboard")
     all_runners = []
     stats = {}
     
@@ -377,7 +377,7 @@ if is_admin:
                             "runner": user_to_delete
                         }
                         if helpers.post_to_google_sheet(payload):
-                            st.success(f"Account profile '{user_to_delete}' has been scrubbed from records.")
+                            st.success(f"Account profile '{user_to_delete}' has been completely removed.")
                             st.cache_data.clear()
                             st.rerun()
                         else:
