@@ -46,8 +46,7 @@ import time
 if "login_attempts" not in st.session_state: st.session_state.login_attempts = 0
 if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
 
-# ⚡ HIGH-SPEED MEMORY CACHE: Holds data for 10 seconds to make tabs instant
-@st.cache_data(ttl=10)
+# 🧼 LIVE REFRESH FIX: Removed cache decorator to force live data synchronization on every page reload
 def load_cloud_data():
     try:
         ts = int(time.time())
@@ -107,7 +106,7 @@ def check_user_login():
             else:
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
                 if not user_match.empty:
-                    user_record = user_match.to_dict(orient="records")[0]
+                    user_record = user_match.to_dict(orient="records")
                     stored_hash = str(user_record.get("password", "")).strip().lower()
                     input_hash = str(helpers.hash_password(login_pw)).strip().lower()
                     
@@ -129,7 +128,6 @@ def check_user_login():
                 
     with col_reg:
         with st.popover("Create New Account", use_container_width=True):
-            # ⚡ SMOOTH TYPING FORM: Stops stuttering while typing registration info
             with st.form("registration_form", clear_on_submit=True):
                 reg_id = st.text_input("Choose Runner ID").strip()
                 reg_pw = st.text_input("Choose Password", type="password")
@@ -177,7 +175,6 @@ with tab_records:
     rec_tab1, rec_tab2 = st.tabs(["Add Performance Log", "View, Edit & Delete History"])
     
     with rec_tab1:
-        # ⚡ SMOOTH TYPING FORM: Performance tracker inputs group cleanly
         with st.form("add_record_form", clear_on_submit=True):
             run_date = st.date_input("Select Running Date")
             run_dist = st.number_input("Distance (km)", min_value=0.0, step=0.1)
@@ -343,7 +340,6 @@ if is_admin:
         
         with admin_col1:
             st.write("### ➕ Provision New User Profile")
-            # ⚡ SMOOTH TYPING FORM: Admin creation boxes type lag-free
             with st.form("admin_provision_form", clear_on_submit=True):
                 new_id = st.text_input("Assign Runner ID").strip()
                 new_pw = st.text_input("Assign Temp Password", type="password")
