@@ -13,7 +13,7 @@ st.markdown("""
     
     /* --- 🖼️ ORIGINAL FULL SCREEN BACKGROUND IMAGE STYLING --- */
     .stApp {
-        background-image: url("https://postimg.cc");
+        background-image: url("https://i.postimg.cc/SRHWtKV2/image-880568f1.jpg");
         background-attachment: fixed;
         background-size: cover;
         background-position: center;
@@ -392,4 +392,3 @@ with c_foot2:
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
-        
