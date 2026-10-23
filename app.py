@@ -11,7 +11,7 @@ st.markdown("""
     header {visibility: hidden;}
     .viewerBadge_container__1QS1Y {display: none !important;}
     
-    /* --- 🖼️ ORIGINAL FULL SCREEN BACKGROUND IMAGE STYLING RESTORED --- */
+    /* --- 🖼️ ORIGINAL FULL SCREEN BACKGROUND IMAGE STYLING --- */
     .stApp {
         background-image: url("https://i.postimg.cc/SRHWtKV2/image-880568f1.jpg");
         background-attachment: fixed;
@@ -46,6 +46,8 @@ import time
 if "login_attempts" not in st.session_state: st.session_state.login_attempts = 0
 if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
 
+# ⚡ HIGH-SPEED MEMORY CACHE: Holds data for 10 seconds to make tabs instant
+@st.cache_data(ttl=10)
 def load_cloud_data():
     try:
         ts = int(time.time())
@@ -55,7 +57,6 @@ def load_cloud_data():
         u_sep = "&" if "?" in u_url else "?"
         r_sep = "&" if "?" in r_url else "?"
         
-        # Appending t=ts forces Google Cloud to bypass cache parameters and return live rows
         df_u = pd.read_csv(f"{u_url}{u_sep}t={ts}", on_bad_lines='skip')
         df_r = pd.read_csv(f"{r_url}{r_sep}t={ts}", on_bad_lines='skip')
     except Exception as e:
@@ -63,7 +64,6 @@ def load_cloud_data():
         df_u = pd.DataFrame(columns=["runner", "password"])
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     
-    # Normalize column headers to lowercase strings safely
     df_u.columns = [str(c).lower().strip() for c in df_u.columns]
     df_r.columns = [str(c).lower().strip() for c in df_r.columns]
     
@@ -98,18 +98,14 @@ def check_user_login():
         if st.button("Login", use_container_width=True):
             fresh_users, fresh_runs = load_cloud_data()
             
-            # 1. Admin Master Credentials Authentication Branch
             if login_id == st.secrets["admin"]["master_id"] and login_pw == st.secrets["admin"]["master_password"]:
                 st.session_state.logged_in_user = login_id
                 st.session_state.is_admin = True
                 st.session_state.login_attempts = 0
                 st.cache_data.clear()
                 st.rerun()
-            
-            # 2. Standard User Account Spreadsheet Row Matching Branch
             else:
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
-                
                 if not user_match.empty:
                     user_record = user_match.to_dict(orient="records")[0]
                     stored_hash = str(user_record.get("password", "")).strip().lower()
@@ -133,24 +129,27 @@ def check_user_login():
                 
     with col_reg:
         with st.popover("Create New Account", use_container_width=True):
-            reg_id = st.text_input("Choose Runner ID", key="reg_user_input").strip()
-            reg_pw = st.text_input("Choose Password", type="password", key="reg_pass_input")
-            if st.button("Submit Registration"):
-                if not reg_id or not reg_pw: st.error("All fields are required.")
-                elif reg_id in existing_users or reg_id == st.secrets["admin"]["master_id"]: st.error("ID taken.")
-                elif len(reg_pw) < 6: st.error("Password must be >= 6 characters.")
-                else:
-                    if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": helpers.hash_password(reg_pw)}):
-                        st.success("Account created successfully! You can now log in.")
-                        st.cache_data.clear()
-                    else: 
-                        st.error("Registration failed.")
+            # ⚡ SMOOTH TYPING FORM: Stops stuttering while typing registration info
+            with st.form("registration_form", clear_on_submit=True):
+                reg_id = st.text_input("Choose Runner ID").strip()
+                reg_pw = st.text_input("Choose Password", type="password")
+                submit_reg = st.form_submit_button("Submit Registration", use_container_width=True)
+                
+                if submit_reg:
+                    if not reg_id or not reg_pw: st.error("All fields are required.")
+                    elif reg_id in existing_users or reg_id == st.secrets["admin"]["master_id"]: st.error("ID taken.")
+                    elif len(reg_pw) < 6: st.error("Password must be >= 6 characters.")
+                    else:
+                        if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": helpers.hash_password(reg_pw)}):
+                            st.success("Account created! You can now log in.")
+                            st.cache_data.clear()
+                        else: 
+                            st.error("Registration failed.")
     return False
 
 if not check_user_login(): st.stop()
 current_user, is_admin = st.session_state.logged_in_user, st.session_state.is_admin
 
-# 🧼 REFRESH STATE FIX FOR ADMINS: Forces re-reading users table upon successful session activation
 if is_admin:
     df_users, df_runs = load_cloud_data()
     existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist()) if "runner" in df_users.columns else []
@@ -161,7 +160,6 @@ with st.sidebar:
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
-
 if is_admin:
     tab_records, tab_leaderboard, tab_admin = st.tabs([
         "📊 My Running Records", 
@@ -179,18 +177,23 @@ with tab_records:
     rec_tab1, rec_tab2 = st.tabs(["Add Performance Log", "View, Edit & Delete History"])
     
     with rec_tab1:
-        run_date = st.date_input("Select Running Date").strftime("%Y-%m-%d")
-        run_dist = st.number_input("Distance (km)", min_value=0.0, step=0.1)
-        t_col1, t_col2, t_col3 = st.columns(3)
-        with t_col1: hour = st.number_input("Hour (HH)", min_value=0, max_value=23, step=1, value=0)
-        with t_col2: minute = st.number_input("Minute (MM)", min_value=0, max_value=59, step=1, value=25)
-        with t_col3: second = st.number_input("Second (SS)", min_value=0, max_value=59, step=1, value=30)
-        if st.button("Save Running Record", use_container_width=True):
-            if helpers.post_to_google_sheet({"sheet": "running_data", "runner": current_user, "date": run_date, "distance": run_dist, "duration": f"{hour:02d}:{minute:02d}:{second:02d}"}):
-                st.success("Log saved to Google Sheet!")
-                st.cache_data.clear()
-                st.rerun()
-            else: st.error("Save failed.")
+        # ⚡ SMOOTH TYPING FORM: Performance tracker inputs group cleanly
+        with st.form("add_record_form", clear_on_submit=True):
+            run_date = st.date_input("Select Running Date")
+            run_dist = st.number_input("Distance (km)", min_value=0.0, step=0.1)
+            t_col1, t_col2, t_col3 = st.columns(3)
+            with t_col1: hour = st.number_input("Hour (HH)", min_value=0, max_value=23, step=1, value=0)
+            with t_col2: minute = st.number_input("Minute (MM)", min_value=0, max_value=59, step=1, value=25)
+            with t_col3: second = st.number_input("Second (SS)", min_value=0, max_value=59, step=1, value=30)
+            submit_run = st.form_submit_button("Save Running Record", use_container_width=True)
+            
+            if submit_run:
+                formatted_date = run_date.strftime("%Y-%m-%d")
+                if helpers.post_to_google_sheet({"sheet": "running_data", "runner": current_user, "date": formatted_date, "distance": run_dist, "duration": f"{hour:02d}:{minute:02d}:{second:02d}"}):
+                    st.success("Log saved to Google Sheet!")
+                    st.cache_data.clear()
+                    st.rerun()
+                else: st.error("Save failed.")
             
     with rec_tab2:
         my_records = df_runs[df_runs["runner"].astype(str).str.strip() == current_user].sort_values(by="date")
@@ -340,23 +343,26 @@ if is_admin:
         
         with admin_col1:
             st.write("### ➕ Provision New User Profile")
-            new_id = st.text_input("Assign Runner ID", key="admin_new_user").strip()
-            new_pw = st.text_input("Assign Temp Password", type="password", key="admin_new_pass")
-            
-            if st.button("Create Account Profile", use_container_width=True):
-                if not new_id or not new_pw:
-                    st.error("Both user account fields are required.")
-                elif new_id in existing_users:
-                    st.error("This Runner ID already exists inside the database.")
-                elif len(new_pw) < 6:
-                    st.error("Password string must be at least 6 characters.")
-                else:
-                    payload = {"sheet": "users", "action": "create", "runner": new_id, "password": helpers.hash_password(new_pw)}
-                    if helpers.post_to_google_sheet(payload):
-                        st.success(f"Profile for '{new_id}' provisioned successfully!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    else: st.error("Provisioning backend failed to append row.")
+            # ⚡ SMOOTH TYPING FORM: Admin creation boxes type lag-free
+            with st.form("admin_provision_form", clear_on_submit=True):
+                new_id = st.text_input("Assign Runner ID").strip()
+                new_pw = st.text_input("Assign Temp Password", type="password")
+                submit_provision = st.form_submit_button("Create Account Profile", use_container_width=True)
+                
+                if submit_provision:
+                    if not new_id or not new_pw:
+                        st.error("Both user account fields are required.")
+                    elif new_id in existing_users:
+                        st.error("This Runner ID already exists inside the database.")
+                    elif len(new_pw) < 6:
+                        st.error("Password string must be at least 6 characters.")
+                    else:
+                        payload = {"sheet": "users", "action": "create", "runner": new_id, "password": helpers.hash_password(new_pw)}
+                        if helpers.post_to_google_sheet(payload):
+                            st.success(f"Profile for '{new_id}' provisioned successfully!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else: st.error("Provisioning backend failed to append row.")
                         
         with admin_col2:
             st.write("### 🗑️ Deprovision User Account Profile")
