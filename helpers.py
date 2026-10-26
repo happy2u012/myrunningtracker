@@ -8,12 +8,25 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from fpdf import FPDF
 
-# --- Cryptographic Password Hashing Security with Salt ---
+# --- Cryptographic Password Hashing & Verification (Supports Salt & Old Unsalted Fallback) ---
 def hash_password(password_str):
-    # Fetch salt from secrets, with a fallback if missing
     salt = st.secrets.get("admin", {}).get("salt", "default_fallback_salt")
     combined = salt + str(password_str)
     return hashlib.sha256(combined.encode('utf-8')).hexdigest()
+
+def verify_password(password_str, stored_hash):
+    stored_hash = str(stored_hash).strip().lower()
+    
+    # 1. Check new salted hash
+    if hash_password(password_str).lower() == stored_hash:
+        return True
+        
+    # 2. Fallback check for old unsalted hash (for existing accounts)
+    old_hash = hashlib.sha256(str(password_str).encode('utf-8')).hexdigest().lower()
+    if old_hash == stored_hash:
+        return True
+        
+    return False
 
 # --- Helper Function to Calculate Individual Run Pace ---
 def calculate_run_pace(distance, duration_str):

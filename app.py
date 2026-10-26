@@ -137,10 +137,10 @@ def check_user_login():
                 user_match = fresh_users[fresh_users["runner"].astype(str).str.strip() == str(login_id)]
                 if not user_match.empty:
                     user_record = user_match.to_dict(orient="records")[0]
-                    stored_hash = str(user_record.get("password", "")).strip().lower()
-                    input_hash = str(helpers.hash_password(login_pw)).strip().lower()
+                    stored_hash = str(user_record.get("password", ""))
                     
-                    if stored_hash == input_hash:
+                    # Use the robust verification helper supporting both salted and legacy hashes
+                    if helpers.verify_password(login_pw, stored_hash):
                         st.session_state.logged_in_user = login_id
                         st.session_state.is_admin = False
                         st.session_state.login_attempts = 0
