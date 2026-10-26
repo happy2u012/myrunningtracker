@@ -4,16 +4,18 @@ import os
 import requests
 import json
 import hashlib
+import time
 import matplotlib.pyplot as plt
 import streamlit as st
 from fpdf import FPDF
 
-# --- Cryptographic Password Hashing & Verification (Supports Salt & Old Unsalted Fallback) ---
+# --- Cryptographic Password Hashing Security with Salt ---
 def hash_password(password_str):
     salt = st.secrets.get("admin", {}).get("salt", "default_fallback_salt")
     combined = salt + str(password_str)
     return hashlib.sha256(combined.encode('utf-8')).hexdigest()
 
+# --- Password Verification (Supports Salt & Old Unsalted Fallback) ---
 def verify_password(password_str, stored_hash):
     stored_hash = str(stored_hash).strip().lower()
     
