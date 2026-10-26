@@ -105,13 +105,11 @@ existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().uniq
 # PART 2: AUTHENTICATION & ACCESS CONTROL
 # ==============================================================================
 
+# --- User Account Authentication Interface ---
 def check_user_login():
-    if "logged_in_user" not in st.session_state: 
-        st.session_state.logged_in_user = None
-    if "is_admin" not in st.session_state: 
-        st.session_state.is_admin = False
-    if st.session_state.logged_in_user is not None: 
-        return True
+    if "logged_in_user" not in st.session_state: st.session_state.logged_in_user = None
+    if "is_admin" not in st.session_state: st.session_state.is_admin = False
+    if st.session_state.logged_in_user is not None: return True
 
     st.title("🔒 Running Tracker Account Login")
     current_time = time.time()
@@ -122,11 +120,11 @@ def check_user_login():
     login_id = st.text_input("Username / ID", key="login_user_input").strip()
     login_pw = st.text_input("Password", type="password", key="login_pass_input")
     col_login, col_reg = st.columns(2)
-    
+
     with col_login:
         if st.button("Login", use_container_width=True):
             fresh_users, fresh_runs = load_cloud_data()
-            
+
             if login_id == st.secrets["admin"]["master_id"] and login_pw == st.secrets["admin"]["master_password"]:
                 st.session_state.logged_in_user = login_id
                 st.session_state.is_admin = True
@@ -138,8 +136,7 @@ def check_user_login():
                 if not user_match.empty:
                     user_record = user_match.to_dict(orient="records")[0]
                     stored_hash = str(user_record.get("password", ""))
-                    
-                    # Use the robust verification helper supporting both salted and legacy hashes
+
                     if helpers.verify_password(login_pw, stored_hash):
                         st.session_state.logged_in_user = login_id
                         st.session_state.is_admin = False
@@ -152,29 +149,29 @@ def check_user_login():
                 else:
                     st.session_state.login_attempts += 1
                     st.error("Invalid credentials.")
-                
-                if st.session_state.login_attempts >= 5: 
+
+                if st.session_state.login_attempts >= 5:
                     st.session_state.lockout_time = time.time() + 900
-                
+
     with col_reg:
         with st.popover("Create New Account", use_container_width=True):
             with st.form("registration_form", clear_on_submit=True):
                 reg_id = st.text_input("Choose Runner ID").strip()
                 reg_pw = st.text_input("Choose Password", type="password")
                 submit_reg = st.form_submit_button("Submit Registration", use_container_width=True)
-                
+
                 if submit_reg:
-                    if not reg_id or not reg_pw: 
+                    if not reg_id or not reg_pw:
                         st.error("All fields are required.")
-                    elif reg_id in existing_users or reg_id == st.secrets["admin"]["master_id"]: 
+                    elif reg_id in existing_users or reg_id == st.secrets["admin"]["master_id"]:
                         st.error("ID taken.")
-                    elif len(reg_pw) < 6: 
+                    elif len(reg_pw) < 6:
                         st.error("Password must be >= 6 characters.")
                     else:
                         if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": helpers.hash_password(reg_pw)}):
                             st.success("Account created! You can now log in.")
                             st.cache_data.clear()
-                        else: 
+                        else:
                             st.error("Registration failed.")
     return False
 
