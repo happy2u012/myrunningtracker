@@ -381,7 +381,8 @@ with tab_leaderboard:
     if len(all_runners) > 0:
         selected_runners = st.multiselect("Select Runners to Include in Export File:", options=all_runners, default=all_runners)
         if selected_runners:
-            filtered_stats = {k: v for k, v in stats.items() if k in selected_runners}
+            # Preserve the display order (logged-in user first) in the exported stats dictionary
+            filtered_stats = {k: stats[k] for k in selected_runners if k in stats}
             ex_col1, ex_col2 = st.columns(2)
             with ex_col1:
                 st.download_button(
