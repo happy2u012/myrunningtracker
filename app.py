@@ -57,11 +57,23 @@ st.markdown("""
         color: #111111 !important;
     }
 
-    /* Force Streamlit Buttons to match laptop style */
-    div.stButton > button, div.stFormSubmitButton > button {
+    /* Force Streamlit Buttons (Normal, Hover, Focus, Active) to match laptop style */
+    div.stButton > button, div.stFormSubmitButton > button, button {
         background-color: #f1f5f9 !important;
         color: #111111 !important;
         border: 1px solid #cbd5e1 !important;
+    }
+    
+    div.stButton > button:hover, div.stFormSubmitButton > button:hover, button:hover {
+        background-color: #e2e8f0 !important;
+        color: #111111 !important;
+        border: 1px solid #94a3b8 !important;
+    }
+
+    div.stButton > button:focus, div.stFormSubmitButton > button:focus, button:focus {
+        background-color: #f1f5f9 !important;
+        color: #111111 !important;
+        box-shadow: none !important;
     }
 
     /* Ensure form labels and text inside containers are dark and high-contrast */
