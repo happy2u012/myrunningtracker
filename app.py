@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import helpers
+import importlib
+importlib.reload(helpers)  # 👈 Forces Python to reload helpers.py on every run
 import time
 
 # ==============================================================================
