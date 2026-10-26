@@ -15,9 +15,9 @@ st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wi
 # --- CSS Injection to Hide Icons, Footers, and Add Background Image ---
 st.markdown("""
     <style>
-    /* Force light color scheme to prevent mobile browsers from auto-darkening inputs/buttons */
+    /* Force light color scheme globally to prevent mobile browsers from auto-darkening elements */
     :root {
-        color-scheme: light;
+        color-scheme: light !important;
     }
 
     #MainMenu {visibility: hidden;}
@@ -41,10 +41,17 @@ st.markdown("""
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.15) !important;
     }
     
-    /* --- 📱 Force Input Fields & Text Boxes to Remain Clean and White on Mobile --- */
-    input, textarea, select, div[data-baseweb="input"] input, div[data-baseweb="base-input"] {
+    /* --- 📱 Force Input Fields, Text Boxes, Selectboxes, and Dropdowns to Remain Clean and White --- */
+    input, textarea, select, div[data-baseweb="input"] input, div[data-baseweb="base-input"], div[data-baseweb="select"] {
         background-color: #ffffff !important;
         color: #111111 !important;
+    }
+
+    /* Force Streamlit Buttons to match laptop style */
+    div.stButton > button, div.stFormSubmitButton > button {
+        background-color: #f8fafc !important;
+        color: #111111 !important;
+        border: 1px solid #cbd5e1 !important;
     }
 
     /* Ensure form labels and text inside containers are dark and high-contrast */
