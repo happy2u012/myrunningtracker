@@ -1,9 +1,16 @@
 import streamlit as st
+import pandas as pd
+import helpers
+import time
+
+# ==============================================================================
+# PART 1: CONFIGURATION, STYLING & DATA LOADING
+# ==============================================================================
 
 # MUST be the absolute first Streamlit execution command
 st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wide")
 
-# --- CSS Injection to Hide Icons, Footers, and Add Background Image ---
+# Custom CSS Injection
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -11,7 +18,7 @@ st.markdown("""
     header {visibility: hidden;}
     .viewerBadge_container__1QS1Y {display: none !important;}
     
-    /* --- 🖼️ ORIGINAL FULL SCREEN BACKGROUND IMAGE STYLING --- */
+    /* Full Screen Background Image */
     .stApp {
         background-image: url("https://i.postimg.cc/SRHWtKV2/image-880568f1.jpg");
         background-attachment: fixed;
@@ -19,7 +26,7 @@ st.markdown("""
         background-position: center;
     }
     
-    /* --- 🌆 Semi-transparent container card panels for perfect readability --- */
+    /* Container styling for high contrast readability */
     div[data-testid="stExpander"], .stTabs, div[data-testid="stForm"] {
         background-color: rgba(255, 255, 255, 0.9) !important;
         padding: 1.5rem !important;
@@ -27,7 +34,7 @@ st.markdown("""
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1) !important;
     }
     
-    /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
+    /* Mobile optimization */
     @media (min-width: 768px) {
         input[type="password"] {-webkit-text-security: square;}
     }
@@ -38,13 +45,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-import pandas as pd
-import helpers
-import time
-
-# --- Initialize Security Brute-Force Counters ---
-if "login_attempts" not in st.session_state: st.session_state.login_attempts = 0
-if "lockout_time" not in st.session_state: st.session_state.lockout_time = 0.0
+# Initialize Security Brute-Force Counters
+if "login_attempts" not in st.session_state: 
+    st.session_state.login_attempts = 0
+if "lockout_time" not in st.session_state: 
+    st.session_state.lockout_time = 0.0
 
 def load_cloud_data():
     try:
@@ -66,7 +71,6 @@ def load_cloud_data():
     if df_r.empty or "runner" not in df_r.columns:
         df_r = pd.DataFrame(columns=["runner", "date", "distance", "duration"])
     else:
-        # 🚀 CLEANUP CONSTRAINTS: String-parse timestamps down to clean human formats
         if "date" in df_r.columns:
             df_r["date"] = df_r["date"].astype(str).apply(lambda x: x.split(" ")[0] if " " in x else x)
         if "duration" in df_r.columns:
@@ -74,15 +78,22 @@ def load_cloud_data():
         
     return df_u, df_r
 
-# Initial Data Load
+# Initial Global Fetch
 df_users, df_runs = load_cloud_data()
 existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist()) if "runner" in df_users.columns else []
 
-# --- User Account Authentication Interface ---
+
+# ==============================================================================
+# PART 2: AUTHENTICATION & ACCESS CONTROL
+# ==============================================================================
+
 def check_user_login():
-    if "logged_in_user" not in st.session_state: st.session_state.logged_in_user = None
-    if "is_admin" not in st.session_state: st.session_state.is_admin = False
-    if st.session_state.logged_in_user is not None: return True
+    if "logged_in_user" not in st.session_state: 
+        st.session_state.logged_in_user = None
+    if "is_admin" not in st.session_state: 
+        st.session_state.is_admin = False
+    if st.session_state.logged_in_user is not None: 
+        return True
 
     st.title("🔒 Running Tracker Account Login")
     current_time = time.time()
@@ -135,9 +146,12 @@ def check_user_login():
                 submit_reg = st.form_submit_button("Submit Registration", use_container_width=True)
                 
                 if submit_reg:
-                    if not reg_id or not reg_pw: st.error("All fields are required.")
-                    elif reg_id in existing_users or reg_id == st.secrets["admin"]["master_id"]: st.error("ID taken.")
-                    elif len(reg_pw) < 6: st.error("Password must be >= 6 characters.")
+                    if not reg_id or not reg_pw: 
+                        st.error("All fields are required.")
+                    elif reg_id in existing_users or reg_id == st.secrets["admin"]["master_id"]: 
+                        st.error("ID taken.")
+                    elif len(reg_pw) < 6: 
+                        st.error("Password must be >= 6 characters.")
                     else:
                         if helpers.post_to_google_sheet({"sheet": "users", "runner": reg_id, "password": helpers.hash_password(reg_pw)}):
                             st.success("Account created! You can now log in.")
@@ -146,19 +160,30 @@ def check_user_login():
                             st.error("Registration failed.")
     return False
 
-if not check_user_login(): st.stop()
-current_user, is_admin = st.session_state.logged_in_user, st.session_state.is_admin
+if not check_user_login(): 
+    st.stop()
+
+current_user = st.session_state.logged_in_user
+is_admin = st.session_state.is_admin
 
 if is_admin:
     df_users, df_runs = load_cloud_data()
     existing_users = sorted(df_users["runner"].dropna().astype(str).str.strip().unique().tolist()) if "runner" in df_users.columns else []
 
+
+# ==============================================================================
+# PART 3: MAIN DASHBOARD & TAB NAVIGATION
+# ==============================================================================
+
+# Sidebar User Info & Logout Button
 with st.sidebar:
     st.write(f"Logged in as: **{current_user}** " + ("(Admin ⚙️)" if is_admin else ""))
     if st.button("Log Out"): 
         st.session_state.logged_in_user = None
         st.session_state.is_admin = False
         st.rerun()
+
+# Dynamic Tab Provisioning
 if is_admin:
     tab_records, tab_leaderboard, tab_admin = st.tabs([
         "📊 My Running Records", 
@@ -170,6 +195,7 @@ else:
         "📊 My Running Records", 
         "🏆 Global Leaderboard & Export"
     ])
+
 # --- Tab 1: Private Records Management ---
 with tab_records:
     st.header(f"👟 Track Records for {current_user}")
@@ -187,11 +213,18 @@ with tab_records:
             
             if submit_run:
                 formatted_date = run_date.strftime("%Y-%m-%d")
-                if helpers.post_to_google_sheet({"sheet": "running_data", "runner": current_user, "date": formatted_date, "distance": run_dist, "duration": f"{hour:02d}:{minute:02d}:{second:02d}"}):
+                if helpers.post_to_google_sheet({
+                    "sheet": "running_data", 
+                    "runner": current_user, 
+                    "date": formatted_date, 
+                    "distance": run_dist, 
+                    "duration": f"{hour:02d}:{minute:02d}:{second:02d}"
+                }):
                     st.success("Log saved to Google Sheet!")
                     st.cache_data.clear()
                     st.rerun()
-                else: st.error("Save failed.")
+                else: 
+                    st.error("Save failed.")
             
     with rec_tab2:
         my_records = df_runs[df_runs["runner"].astype(str).str.strip() == current_user].sort_values(by="date")
@@ -222,17 +255,17 @@ with tab_records:
                 
                 try:
                     ch, cm, cs = map(int, current_target_row["Duration"].split(":"))
-                except:
+                except Exception:
                     ch, cm, cs = 0, 25, 0
                 
-                # ✅ DATEPARSEERROR FIX: Implement protective coercion parsing to prevent crashing on invalid API values
+                # Protective date parsing
                 try:
                     parsed_value_date = pd.to_datetime(current_target_row["Date"], errors='coerce', format='mixed')
                     if pd.isna(parsed_value_date):
                         fallback_default_date = pd.Timestamp.now()
                     else:
                         fallback_default_date = parsed_value_date
-                except:
+                except Exception:
                     fallback_default_date = pd.Timestamp.now()
                 
                 edit_date = st.date_input("Modify Running Date", value=fallback_default_date)
@@ -277,6 +310,7 @@ with tab_records:
                             st.rerun()
                         else:
                             st.error("Failed to execute deletion request on spreadsheet.")
+
 # --- Tab 2: Shared Leaderboard & Multiselect Exporter ---
 with tab_leaderboard:
     st.header("🏆 All Runners Leaderboard")
@@ -316,7 +350,8 @@ with tab_leaderboard:
                 user_records = valid_runs[valid_runs["runner"].astype(str).str.strip() == user].sort_values(by="date")
                 with col_table:
                     st.write("#### 🗓️ Log Sheets")
-                    if user_records.empty: st.info("No logs tracked.")
+                    if user_records.empty: 
+                        st.info("No logs tracked.")
                     else:
                         formatted_table_data = [{"No.": i, "Date": r["date"], "Distance": f"{r['distance']} km", "Duration": r["duration"]} for i, (_, r) in enumerate(user_records.iterrows(), 1)]
                         st.dataframe(formatted_table_data, use_container_width=True, hide_index=True)
@@ -333,9 +368,21 @@ with tab_leaderboard:
             filtered_stats = {k: v for k, v in stats.items() if k in selected_runners}
             ex_col1, ex_col2 = st.columns(2)
             with ex_col1:
-                st.download_button(label="📥 Download Dataset as CSV", data=helpers.make_csv(filtered_stats), file_name="running_leaderboard_export.csv", mime="text/csv", use_container_width=True)
+                st.download_button(
+                    label="📥 Download Dataset as CSV", 
+                    data=helpers.make_csv(filtered_stats), 
+                    file_name="running_leaderboard_export.csv", 
+                    mime="text/csv", 
+                    use_container_width=True
+                )
             with ex_col2:
-                st.download_button(label="📥 Download Performance Report as PDF", data=helpers.make_pdf_dataframe(filtered_stats, valid_runs), file_name="running_leaderboard_report.pdf", mime="application/pdf", use_container_width=True)
+                st.download_button(
+                    label="📥 Download Performance Report as PDF", 
+                    data=helpers.make_pdf_dataframe(filtered_stats, valid_runs), 
+                    file_name="running_leaderboard_report.pdf", 
+                    mime="application/pdf", 
+                    use_container_width=True
+                )
         else:
             st.warning("Please choose at least one runner from the selector dropdown menu to export files.")
     else:
@@ -369,7 +416,8 @@ if is_admin:
                             st.success(f"Profile for '{new_id}' provisioned successfully!")
                             st.cache_data.clear()
                             st.rerun()
-                        else: st.error("Provisioning backend failed to append row.")
+                        else: 
+                            st.error("Provisioning backend failed to append row.")
                         
         with admin_col2:
             st.write("### 🗑️ Deprovision User Account Profile")
@@ -386,7 +434,8 @@ if is_admin:
                             st.success(f"Account profile '{user_to_delete}' has been completely removed.")
                             st.cache_data.clear()
                             st.rerun()
-                        else: st.error("Deletion API endpoint returned a processing execution failure.")
+                        else: 
+                            st.error("Deletion API endpoint returned a processing execution failure.")
             else:
                 st.info("No active runner account profiles found to drop.")
 
@@ -397,7 +446,7 @@ if is_admin:
         else:
             st.warning("User database ledger dataframe is empty or uninitialized.")
 
-# --- BACKUP MAIN SCREEN DOCK FOOTER BUTTONS ---
+# --- Footer Logout Control ---
 st.write("---")
 c_foot1, c_foot2 = st.columns(2)
 with c_foot2:

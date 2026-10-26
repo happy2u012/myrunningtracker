@@ -4,7 +4,6 @@ import os
 import requests
 import json
 import hashlib
-import time
 import matplotlib.pyplot as plt
 import streamlit as st
 from fpdf import FPDF
@@ -15,14 +14,16 @@ def hash_password(password_str):
 
 # --- Helper Function to Calculate Individual Run Pace ---
 def calculate_run_pace(distance, duration_str):
-    if distance <= 0: return "00:00/km"
+    if distance <= 0: 
+        return "00:00/km"
     try:
         h, m, s = map(int, duration_str.split(":"))
         total_seconds = h * 3600 + m * 60 + s
         pace_seconds_per_km = total_seconds / distance
         pace_m, pace_s = divmod(int(pace_seconds_per_km), 60)
         return f"{pace_m:02d}:{pace_s:02d}/km"
-    except Exception: return "00:00/km"
+    except Exception:
+        return "00:00/km"
 
 # --- Statistics Calculation Function ---
 def calculate_stats_dataframe(df_runs):
@@ -31,7 +32,8 @@ def calculate_stats_dataframe(df_runs):
     for user in unique_runners:
         user_runs = df_runs[df_runs["runner"] == user]
         total_days = len(user_runs)
-        if total_days == 0: continue
+        if total_days == 0: 
+            continue
         
         total_distance = sum(float(d) for d in user_runs["distance"])
         total_seconds = 0
@@ -39,7 +41,8 @@ def calculate_stats_dataframe(df_runs):
             try:
                 h, m, s = map(int, str(dur).split(":"))
                 total_seconds += h * 3600 + m * 60 + s
-            except: pass
+            except Exception:
+                pass
             
         avg_distance = total_distance / total_days
         avg_seconds = total_seconds / total_days
@@ -57,8 +60,12 @@ def calculate_stats_dataframe(df_runs):
             pace_str = "00:00/km"
         
         summary[user] = {
-            "Total Days": total_days, "Total Distance (km)": round(total_distance, 2), "Total Time": sec_to_str(total_seconds),
-            "Avg Distance (km)": round(avg_distance, 2), "Avg Time": sec_to_str(avg_seconds), "Avg Pace": pace_str
+            "Total Days": total_days, 
+            "Total Distance (km)": round(total_distance, 2), 
+            "Total Time": sec_to_str(total_seconds),
+            "Avg Distance (km)": round(avg_distance, 2), 
+            "Avg Time": sec_to_str(avg_seconds), 
+            "Avg Pace": pace_str
         }
     return summary
 
@@ -75,16 +82,13 @@ def post_to_google_sheet(payload):
 
 # --- Web Mileage Bar Chart Generation ---
 def draw_mileage_chart(user_records, total_distance, user_name):
-    import matplotlib.pyplot as plt
-    plt.clf() # 🧼 CRITICAL FIX: Completely wipes old chart layers and cached labels
-
+    plt.clf()  # Clear existing chart cache
     fig, ax = plt.subplots(figsize=(6, max(2.5, len(user_records) * 0.4)))
     labels = [str(run['date']) for _, run in user_records.iterrows()] + ["TOTAL"]
     distances = [float(run['distance']) for _, run in user_records.iterrows()] + [total_distance]
     colors = ['#a6c8e0'] * len(user_records) + ['#1f4e79']
     
     bars = ax.barh(labels, distances, color=colors, height=0.6)
-    #  USE THE BLURRED VARIABLE HERE TO ADD A CUSTOM TITLE:
     ax.set_title(f"📊 Mileage Progression for {user_name}", fontsize=10, fontweight='bold', pad=10)
     ax.set_xlabel("Distance (km)", fontsize=9, fontweight='bold')
     ax.invert_yaxis()
@@ -93,7 +97,8 @@ def draw_mileage_chart(user_records, total_distance, user_name):
     
     for bar in bars:
         width = bar.get_width()
-        ax.text(width + (max(distances) * 0.02), bar.get_y() + bar.get_height()/2, 
+        ax.text(width + (max(distances) * 0.02 if max(distances) > 0 else 0.1), 
+                bar.get_y() + bar.get_height()/2, 
                 f"{width:.1f}k", va='center', ha='left', fontsize=8, fontweight='bold')
     st.pyplot(fig)
     plt.close(fig)
@@ -171,10 +176,14 @@ def make_pdf_dataframe(stats, df_runs):
             labels = [str(run['date']) for _, run in user_records.iterrows()] + ["TOTAL"]
             distances = [float(run['distance']) for _, run in user_records.iterrows()] + [s['Total Distance (km)']]
             bars = plt.barh(labels, distances, color=['#a6c8e0']*len(user_records) + ['#1f4e79'], height=0.55)
-            plt.xlabel("Distance (km)", fontsize=9, fontweight='bold'); plt.gca().invert_yaxis(); plt.tight_layout()
+            plt.xlabel("Distance (km)", fontsize=9, fontweight='bold')
+            plt.gca().invert_yaxis()
+            plt.tight_layout()
             
             for bar in bars:
-                plt.text(bar.get_width() + (max(distances)*0.02), bar.get_y() + bar.get_height()/2, f"{bar.get_width():.1f}k", va='center', ha='left', fontsize=8, fontweight='bold')
+                plt.text(bar.get_width() + (max(distances)*0.02 if max(distances)>0 else 0.1), 
+                         bar.get_y() + bar.get_height()/2, 
+                         f"{bar.get_width():.1f}k", va='center', ha='left', fontsize=8, fontweight='bold')
                 
             chart_filename = f"temp_chart_{user}.png"
             plt.savefig(chart_filename, dpi=200, bbox_inches='tight')
