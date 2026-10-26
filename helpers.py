@@ -100,7 +100,10 @@ def post_to_google_sheet(payload):
 
 # --- Web Mileage Bar Chart Generation ---
 def draw_mileage_chart(user_records, total_distance, user_name):
-    plt.clf()  # Clear existing chart cache
+    import matplotlib
+    matplotlib.use('Agg')  # Use non-interactive backend to prevent server connection errors on mobile
+    plt.close('all')       # Clear all open figures
+    
     fig, ax = plt.subplots(figsize=(6, max(2.5, len(user_records) * 0.4)))
     labels = [str(run['date']) for _, run in user_records.iterrows()] + ["TOTAL"]
     distances = [float(run['distance']) for _, run in user_records.iterrows()] + [total_distance]
@@ -118,6 +121,7 @@ def draw_mileage_chart(user_records, total_distance, user_name):
         ax.text(width + (max(distances) * 0.02 if max(distances) > 0 else 0.1), 
                 bar.get_y() + bar.get_height()/2, 
                 f"{width:.1f}k", va='center', ha='left', fontsize=8, fontweight='bold')
+    
     st.pyplot(fig)
     plt.close(fig)
 
