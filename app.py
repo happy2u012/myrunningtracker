@@ -10,15 +10,20 @@ import time
 # MUST be the absolute first Streamlit execution command
 st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wide")
 
-# Custom CSS Injection
+# --- CSS Injection to Hide Icons, Footers, and Add Background Image ---
 st.markdown("""
     <style>
+    /* Force light color scheme to prevent mobile browsers from auto-darkening inputs/buttons */
+    :root {
+        color-scheme: light;
+    }
+
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .viewerBadge_container__1QS1Y {display: none !important;}
     
-    /* Full Screen Background Image */
+    /* --- 🖼️ ORIGINAL FULL SCREEN BACKGROUND IMAGE STYLING --- */
     .stApp {
         background-image: url("https://i.postimg.cc/SRHWtKV2/image-880568f1.jpg");
         background-attachment: fixed;
@@ -26,15 +31,26 @@ st.markdown("""
         background-position: center;
     }
     
-    /* Container styling for high contrast readability */
+    /* --- 🌆 Semi-transparent container card panels for perfect readability --- */
     div[data-testid="stExpander"], .stTabs, div[data-testid="stForm"] {
-        background-color: rgba(255, 255, 255, 0.9) !important;
+        background-color: rgba(255, 255, 255, 0.95) !important;
         padding: 1.5rem !important;
         border-radius: 10px !important;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1) !important;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.15) !important;
     }
     
-    /* Mobile optimization */
+    /* --- 📱 Force Input Fields & Text Boxes to Remain Clean and White on Mobile --- */
+    input, textarea, select, div[data-baseweb="input"] input, div[data-baseweb="base-input"] {
+        background-color: #ffffff !important;
+        color: #111111 !important;
+    }
+
+    /* Ensure form labels and text inside containers are dark and high-contrast */
+    label, p, span, div[data-testid="stMarkdownContainer"] {
+        color: #1f2937 !important;
+    }
+
+    /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
     @media (min-width: 768px) {
         input[type="password"] {-webkit-text-security: square;}
     }
