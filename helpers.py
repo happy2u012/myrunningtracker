@@ -8,9 +8,12 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from fpdf import FPDF
 
-# --- Cryptographic Password Hashing Security ---
+# --- Cryptographic Password Hashing Security with Salt ---
 def hash_password(password_str):
-    return hashlib.sha256(password_str.encode('utf-8')).hexdigest()
+    # Fetch salt from secrets, with a fallback if missing
+    salt = st.secrets.get("admin", {}).get("salt", "default_fallback_salt")
+    combined = salt + str(password_str)
+    return hashlib.sha256(combined.encode('utf-8')).hexdigest()
 
 # --- Helper Function to Calculate Individual Run Pace ---
 def calculate_run_pace(distance, duration_str):
