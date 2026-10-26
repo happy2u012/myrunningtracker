@@ -70,7 +70,7 @@ if "lockout_time" not in st.session_state:
     st.session_state.lockout_time = 0.0
 
 # --- Cloud Data Loader with 60-second TTL Caching ---
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=60, show_spinner=False)
 def load_cloud_data():
     try:
         script_url = st.secrets["connections"]["gsheets"]["script_url"]
