@@ -28,7 +28,7 @@ st.markdown("""
         background-position: center;
     }
     
-    /* --- 🌆 Global Container Panels (White Cards) --- */
+    /* --- 🌆 Global Container Panels (Semi-Transparent White Cards) --- */
     div[data-testid="stExpander"], .stTabs, div[data-testid="stForm"] {
         background-color: rgba(255, 255, 255, 0.95) !important;
         padding: 1.5rem !important;
@@ -36,41 +36,62 @@ st.markdown("""
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1) !important;
     }
 
-    /* --- 👟 Headings, Text, and Metrics Global Visibility Fix --- */
+    /* --- 👟 Global Typography Color Settings (Dark Grey Ink) --- */
     .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp p, .stApp label,
     div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] {
         color: #212529 !important;
     }
 
-    /* --- 🛠️ Unified Uniform Light Grey Box Style (Inputs, Forms, Dataframes) --- */
+    /* --- 🛠️ COMPLETE LIGHT FORCE OVERRIDE (Fixes Mobile Dark Boxes) --- */
+    /* Target inputs, date pickers, number buttons, textareas, expanders, dataframes, and buttons */
     div[data-baseweb="input"], 
     div[data-testid="stDateInput"] div,
     div[data-testid="stDateInput"] button, 
     div[data-testid="stNumberInput"] div,
+    div[data-testid="stNumberInput"] button,
     div[data-testid="stDataFrame"],
     div[data-testid="stTable"],
-    div[data-testid="stExpander"] summary {
+    div[data-testid="stExpander"] summary,
+    div[data-testid="stForm"] button,
+    .stButton button,
+    div[data-testid="stPopover"] button,
+    div[data-testid="stPopoverContent"] div {
         background-color: #f1f3f5 !important;
         color: #212529 !important;
         border-radius: 6px !important;
         border: 1px solid #dee2e6 !important;
     }
 
-    /* Force all form input values and numbers to display crisp dark ink */
+    /* Target nested text strings, input characters, table header blocks, and text frames */
     div[data-baseweb="input"] input, 
     div[data-testid="stDateInput"] input,
     div[data-testid="stNumberInput"] input,
     .stDataFrame div, 
     div[data-testid="stTable"] td, 
-    div[data-testid="stTable"] th {
+    div[data-testid="stTable"] th,
+    .stButton button p,
+    div[data-testid="stPopover"] p,
+    div[data-testid="stExpander"] summary p {
         color: #212529 !important;
         background-color: transparent !important;
     }
-    
-    /* Clean custom styled focus behavior */
-    div[data-testid="stExpander"] summary:focus {
+
+    /* Strip native active blue outlines and black focused boxes */
+    div[data-testid="stExpander"] summary:focus, 
+    .stButton button:focus, 
+    div[data-baseweb="input"]:focus-within {
         outline: none !important;
         box-shadow: none !important;
+        border-color: #ced4da !important;
+    }
+    
+    /* Clean up data table presentation layers */
+    div[data-testid="stTable"] th {
+        background-color: #e9ecef !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stTable"] tr:nth-child(even) {
+        background-color: #f8f9fa !important;
     }
 
     /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
