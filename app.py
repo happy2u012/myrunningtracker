@@ -43,7 +43,6 @@ st.markdown("""
     }
 
     /* --- 🛠️ MOBILE-FIRST FORCE LIGHT OVERRIDE --- */
-    /* Forces light grey background colors across all input panels, grids, lists, and boxes */
     div[data-baseweb="input"], 
     div[data-testid="stDateInput"] div,
     div[data-testid="stDateInput"] button, 
@@ -61,11 +60,16 @@ st.markdown("""
         border: 1px solid #dee2e6 !important;
     }
 
-    /* Force primary buttons (Download buttons, log out, action points) to have clear light styles */
-    .stButton button, div[data-testid="stForm"] button, div[data-testid="stPopover"] button {
+    /* 🚀 FIXED: Specific targets for native buttons and download button components to eliminate the black box */
+    .stButton button, 
+    div[data-testid="stForm"] button, 
+    div[data-testid="stPopover"] button,
+    .stDownloadButton button,
+    div[data-testid="stDownloadButton"] button {
         background-color: #f1f3f5 !important;
         color: #212529 !important;
         border: 1px solid #dee2e6 !important;
+        border-radius: 6px !important;
     }
 
     /* Ensure deep-nested text strings inside forms, options tags, and tables print clearly */
@@ -76,6 +80,7 @@ st.markdown("""
     div[data-testid="stTable"] td, 
     div[data-testid="stTable"] th,
     .stButton button p,
+    .stDownloadButton button p,
     div[data-testid="stMultiSelect"] span,
     div[data-baseweb="select"] span,
     div[data-testid="stPopover"] p,
@@ -97,6 +102,7 @@ st.markdown("""
     /* Strip focus borders and browser-side default outline shadows */
     div[data-testid="stExpander"] summary:focus, 
     .stButton button:focus, 
+    .stDownloadButton button:focus,
     div[data-baseweb="input"]:focus-within {
         outline: none !important;
         box-shadow: none !important;
