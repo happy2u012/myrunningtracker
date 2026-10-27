@@ -15,11 +15,6 @@ st.set_page_config(page_title="My Running Tracker", page_icon="🏃", layout="wi
 # --- CSS Injection to Hide Icons, Footers, and Add Background Image ---
 st.markdown("""
     <style>
-    /* Force light color scheme globally */
-    :root {
-        color-scheme: light !important;
-    }
-
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -33,52 +28,42 @@ st.markdown("""
         background-position: center;
     }
     
-    /* --- 🌆 Semi-transparent container card panels for perfect readability --- */
+    /* --- 🌆 Perfect semi-transparent white card panels --- */
     div[data-testid="stExpander"], .stTabs, div[data-testid="stForm"] {
         background-color: rgba(255, 255, 255, 0.95) !important;
         padding: 1.5rem !important;
         border-radius: 10px !important;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.15) !important;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* --- 🛠️ UNIFIED LIGHT GREY DESIGN THEME OVERRIDE --- */
+    div[data-baseweb="input"], 
+    div[data-testid="stDateInput"] div,
+    div[data-testid="stDateInput"] button, 
+    div[data-testid="stDataFrame"],
+    div[data-testid="stTable"],
+    .stDataFrame div,
+    div[data-testid="stExpander"] button,
+    div[data-testid="stExpander"] summary {
+        background-color: #f1f3f5 !important;
+        color: #212529 !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }
+
+    /* Force text/icons inside table elements and expander headers to be visible, dark, and crisp */
+    div[data-testid="stDateInput"] div *, 
+    .stDataFrame div, 
+    div[data-testid="stTable"] *,
+    div[data-testid="stExpander"] summary *,
+    div[data-testid="stExpander"] button * {
+        color: #212529 !important;
     }
     
-    /* --- 📱 Force Input Fields, Dropdowns, and Menu Selectboxes to Light Gray / White --- */
-    input, textarea, select, 
-    div[data-baseweb="input"] input, 
-    div[data-baseweb="base-input"], 
-    div[data-baseweb="select"] > div,
-    span[data-baseweb="tag"] {
-        background-color: #f8fafc !important;
-        color: #111111 !important;
-    }
-
-    /* Target dropdown popover menus and listboxes on mobile */
-    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"] {
-        background-color: #ffffff !important;
-        color: #111111 !important;
-    }
-
-    /* Force Streamlit Buttons (Normal, Hover, Focus, Active) to match laptop style */
-    div.stButton > button, div.stFormSubmitButton > button, button {
-        background-color: #f1f5f9 !important;
-        color: #111111 !important;
-        border: 1px solid #cbd5e1 !important;
-    }
-    
-    div.stButton > button:hover, div.stFormSubmitButton > button:hover, button:hover {
-        background-color: #e2e8f0 !important;
-        color: #111111 !important;
-        border: 1px solid #94a3b8 !important;
-    }
-
-    div.stButton > button:focus, div.stFormSubmitButton > button:focus, button:focus {
-        background-color: #f1f5f9 !important;
-        color: #111111 !important;
+    /* Remove default ugly focus borders from custom light boxes */
+    div[data-testid="stExpander"] summary:focus, div[data-testid="stExpander"] button:focus {
+        outline: none !important;
         box-shadow: none !important;
-    }
-
-    /* Ensure form labels and text inside containers are dark and high-contrast */
-    label, p, span, div[data-testid="stMarkdownContainer"] {
-        color: #1f2937 !important;
     }
 
     /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
