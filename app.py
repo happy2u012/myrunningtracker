@@ -28,7 +28,7 @@ st.markdown("""
         background-position: center;
     }
     
-    /* --- 🌆 Perfect semi-transparent white card panels --- */
+    /* --- 🌆 Global Container Panels (White Cards) --- */
     div[data-testid="stExpander"], .stTabs, div[data-testid="stForm"] {
         background-color: rgba(255, 255, 255, 0.95) !important;
         padding: 1.5rem !important;
@@ -36,32 +36,39 @@ st.markdown("""
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1) !important;
     }
 
-    /* --- 🛠️ UNIFIED LIGHT GREY DESIGN THEME OVERRIDE --- */
+    /* --- 👟 Headings, Text, and Metrics Global Visibility Fix --- */
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp p, .stApp label,
+    div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] {
+        color: #212529 !important;
+    }
+
+    /* --- 🛠️ Unified Uniform Light Grey Box Style (Inputs, Forms, Dataframes) --- */
     div[data-baseweb="input"], 
     div[data-testid="stDateInput"] div,
     div[data-testid="stDateInput"] button, 
+    div[data-testid="stNumberInput"] div,
     div[data-testid="stDataFrame"],
     div[data-testid="stTable"],
-    .stDataFrame div,
-    div[data-testid="stExpander"] button,
     div[data-testid="stExpander"] summary {
         background-color: #f1f3f5 !important;
         color: #212529 !important;
         border-radius: 6px !important;
-        border: none !important;
+        border: 1px solid #dee2e6 !important;
     }
 
-    /* Force text/icons inside table elements and expander headers to be visible, dark, and crisp */
-    div[data-testid="stDateInput"] div *, 
+    /* Force all form input values and numbers to display crisp dark ink */
+    div[data-baseweb="input"] input, 
+    div[data-testid="stDateInput"] input,
+    div[data-testid="stNumberInput"] input,
     .stDataFrame div, 
-    div[data-testid="stTable"] *,
-    div[data-testid="stExpander"] summary *,
-    div[data-testid="stExpander"] button * {
+    div[data-testid="stTable"] td, 
+    div[data-testid="stTable"] th {
         color: #212529 !important;
+        background-color: transparent !important;
     }
     
-    /* Remove default ugly focus borders from custom light boxes */
-    div[data-testid="stExpander"] summary:focus, div[data-testid="stExpander"] button:focus {
+    /* Clean custom styled focus behavior */
+    div[data-testid="stExpander"] summary:focus {
         outline: none !important;
         box-shadow: none !important;
     }
