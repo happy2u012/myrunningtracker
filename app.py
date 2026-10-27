@@ -42,8 +42,8 @@ st.markdown("""
         color: #212529 !important;
     }
 
-    /* --- 🛠️ COMPLETE LIGHT FORCE OVERRIDE (Fixes Mobile Dark Boxes) --- */
-    /* Target inputs, date pickers, number buttons, textareas, expanders, dataframes, and buttons */
+    /* --- 🛠️ MOBILE-FIRST FORCE LIGHT OVERRIDE --- */
+    /* Forces light grey background colors across all input panels, grids, lists, and boxes */
     div[data-baseweb="input"], 
     div[data-testid="stDateInput"] div,
     div[data-testid="stDateInput"] button, 
@@ -51,18 +51,24 @@ st.markdown("""
     div[data-testid="stNumberInput"] button,
     div[data-testid="stDataFrame"],
     div[data-testid="stTable"],
-    div[data-testid="stExpander"] summary,
-    div[data-testid="stForm"] button,
-    .stButton button,
-    div[data-testid="stPopover"] button,
-    div[data-testid="stPopoverContent"] div {
+    div[data-testid="stMultiSelect"] div,
+    div[role="listbox"],
+    div[data-baseweb="select"] div,
+    div[data-testid="stExpander"] summary {
         background-color: #f1f3f5 !important;
         color: #212529 !important;
         border-radius: 6px !important;
         border: 1px solid #dee2e6 !important;
     }
 
-    /* Target nested text strings, input characters, table header blocks, and text frames */
+    /* Force primary buttons (Download buttons, log out, action points) to have clear light styles */
+    .stButton button, div[data-testid="stForm"] button, div[data-testid="stPopover"] button {
+        background-color: #f1f3f5 !important;
+        color: #212529 !important;
+        border: 1px solid #dee2e6 !important;
+    }
+
+    /* Ensure deep-nested text strings inside forms, options tags, and tables print clearly */
     div[data-baseweb="input"] input, 
     div[data-testid="stDateInput"] input,
     div[data-testid="stNumberInput"] input,
@@ -70,13 +76,25 @@ st.markdown("""
     div[data-testid="stTable"] td, 
     div[data-testid="stTable"] th,
     .stButton button p,
+    div[data-testid="stMultiSelect"] span,
+    div[data-baseweb="select"] span,
     div[data-testid="stPopover"] p,
     div[data-testid="stExpander"] summary p {
         color: #212529 !important;
         background-color: transparent !important;
     }
 
-    /* Strip native active blue outlines and black focused boxes */
+    /* Format table headers to present clean background indicators */
+    div[data-testid="stTable"] th {
+        background-color: #e9ecef !important;
+        font-weight: bold !important;
+        color: #212529 !important;
+    }
+    div[data-testid="stTable"] tr:nth-child(even) {
+        background-color: #f8f9fa !important;
+    }
+
+    /* Strip focus borders and browser-side default outline shadows */
     div[data-testid="stExpander"] summary:focus, 
     .stButton button:focus, 
     div[data-baseweb="input"]:focus-within {
@@ -85,15 +103,6 @@ st.markdown("""
         border-color: #ced4da !important;
     }
     
-    /* Clean up data table presentation layers */
-    div[data-testid="stTable"] th {
-        background-color: #e9ecef !important;
-        font-weight: bold !important;
-    }
-    div[data-testid="stTable"] tr:nth-child(even) {
-        background-color: #f8f9fa !important;
-    }
-
     /* --- MOBILE RESPONSIVE OPTIMIZATION --- */
     @media (min-width: 768px) {
         input[type="password"] {-webkit-text-security: square;}
