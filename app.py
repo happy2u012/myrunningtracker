@@ -33,12 +33,12 @@ st.markdown("""
         background-position: center;
     }
     
-    /* --- 🌆 Semi-transparent container card panels for perfect readability --- */
+    /* --- 🌆 Light green container card panels for perfect readability --- */
     div[data-testid="stExpander"], .stTabs, div[data-testid="stForm"] {
-        background-color: rgba(255, 255, 255, 0.95) !important;
+        background-color: rgba(220, 245, 220, 0.95) !important; /* 🚀 CHANGED: Adjusted to a soft, semi-transparent light green */
         padding: 1.5rem !important;
         border-radius: 10px !important;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.15) !important;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1) !important;
     }
     
     /* --- 📱 Force Input Fields, Dropdowns, and Menu Selectboxes to Light Gray / White --- */
@@ -142,7 +142,7 @@ def check_user_login():
     if "is_admin" not in st.session_state: st.session_state.is_admin = False
     if st.session_state.logged_in_user is not None: return True
 
-    st.title("🔒 Running Tracker Account Login")
+    st.title("My Running Tracker")
     current_time = time.time()
     if st.session_state.login_attempts >= 5 and (st.session_state.lockout_time - current_time) > 0:
         st.error(f"🚨 System locked. Try again in {int(st.session_state.lockout_time - current_time)} seconds.")
@@ -233,13 +233,13 @@ with st.sidebar:
 if is_admin:
     tab_records, tab_leaderboard, tab_admin = st.tabs([
         "📊 My Running Records", 
-        "🏆 Global Leaderboard & Export", 
+        "🏆 All Runners Leaderboard", 
         "⚙️ Admin Management Console"
     ])
 else:
     tab_records, tab_leaderboard = st.tabs([
         "📊 My Running Records", 
-        "🏆 Global Leaderboard & Export"
+        "🏆 All Runners Leaderboard"
     ])
 
 # --- Tab 1: Private Records Management ---
